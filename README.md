@@ -20,6 +20,10 @@ the python executable located in the Gnome SDK snap.
 part build, allowing to restore them inside the container to do
 tests in case there is a problem during the build operation.
 
+* fix_pkg: analyzes a .pc file from pkgconfig and modifies the *prefix*
+variable to contain the specific value passed, and also all the other
+variables to point to *$prefix/...*.
+
 ## How to use it
 
 Just add this in your *parts*:
