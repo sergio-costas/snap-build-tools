@@ -21,6 +21,7 @@ parser = argparse.ArgumentParser(prog="remove_common", description="An utility t
 parser.add_argument('extension', nargs='*', default=[])
 parser.add_argument('-e', '--exclude', nargs='+', help="A list of files and directories to exclude from checking")
 parser.add_argument('-m', '--map', nargs='+', default=[], help="A list of snap_name:path pairs")
+parser.add_argument('-f', '--folders', nargs='+', default=[], help="The list of paths to check for duplicates")
 parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Show extra info")
 parser.add_argument('-q', '--quiet', action='store_true', default=False, help="Don't show any message")
 args = parser.parse_args()
@@ -216,7 +217,7 @@ def check_if_exists(extensions_paths, relative_file_path, verbose):
     return False
 
 
-def main(snap_folder, extensions_paths, exclude_list=[], verbose=False, quiet=True):
+def main(part_folder, base_folders, extensions_paths, exclude_list=[], verbose=False, quiet=True):
     """Main function
 
     Searches each file in 'snap_folder' inside each path in 'extensions_paths'
@@ -229,8 +230,8 @@ def main(snap_folder, extensions_paths, exclude_list=[], verbose=False, quiet=Tr
 
     Parameters
     ----------
-    snap_folder : string
-        The path of the folder where the staged .deb have been uncompressed (usually
+    base_folders : array of strings
+        The paths of the folder where the staged .deb have been uncompressed (usually
         CRAFT_PART_INSTALL)
     extensions_paths : array of tuples with two elements
         An array with tuples containing each one a string with the root
@@ -246,19 +247,26 @@ def main(snap_folder, extensions_paths, exclude_list=[], verbose=False, quiet=Tr
     """
 
     duplicated_bytes = 0
-    for full_file_path in glob.glob(os.path.join(snap_folder, "**/*"), recursive=True):
-        if not os.path.isfile(full_file_path) and not os.path.islink(full_file_path):
-            continue
-        relative_file_path = full_file_path[len(snap_folder):]
-        if relative_file_path[0] == '/':
-            relative_file_path = relative_file_path[1:]
-        do_exclude = False
-        for exclude in exclude_list:
-            if fnmatch.fnmatch(relative_file_path, exclude):
-                if verbose:
-                    print(f"Excluding {relative_file_path} with rule {exclude}")
-                do_exclude = True
-                break
+    for base_folder in base_folders:
+        for full_file_path in glob.glob(os.path.join(base_folder, "**/*"), recursive=True):
+            if not os.path.isfile(full_file_path) and not os.path.islink(full_file_path):
+                continue
+            relative_file_path = full_file_path[len(part_folder):]
+            if relative_file_path[0] == '/':
+                relative_file_path = relative_file_path[1:]
+            do_exclude = False
+            for exclude in exclude_list:
+                if fnmatch.fnmatch(relative_file_path, exclude):
+                    if verbose:
+                        print(f"Excluding {relative_file_path} with rule {exclude}")
+                    do_exclude = True
+                    break
+            if do_exclude:
+                continue
+            if check_if_exists(base_folders, relative_file_path):
+                if os.path.isfile(full_file_path):
+                    duplicated_bytes += os.stat(full_file_path).st_size
+                os.remove(full_file_path)
         if do_exclude:
             continue
         if check_if_exists(extensions_paths, relative_file_path, verbose):
@@ -298,5 +306,11 @@ if __name__ == "__main__":
     # in other snaps, or in the stage because they were built in other
     # parts.
     snap_folder = os.environ["CRAFT_PART_INSTALL"]
+    if args.folders is None:
+        install_folders = [snap_folder]
+    else:
+        install_folders = []
+        for folder in args.folders:
+            install_folders.append(os.path.join(snap_folder, folder))
 
-    main(snap_folder, extensions_paths, global_excludes, verbose, quiet)
+    main(snap_folder, install_folders, extensions_paths, global_excludes, verbose, quiet)

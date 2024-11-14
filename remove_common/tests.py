@@ -72,12 +72,11 @@ class base_system:
     def remove_common(self):
         # maps must end in "/", like "usr/"
         maps = ((self._gnome_46_path, None), (self._gtk_common_themes_path, "usr/"))
-        remove_common.main(self._install_path, maps, self._exclude)
+        remove_common.main(self._install_path, [self._install_path], maps, self._exclude)
 
     def file_exists(self, path):
         full_path = os.path.join(self._install_path, path)
         return os.path.exists(full_path)
-
 
 class TestRemoveCommon(unittest.TestCase):
 
