@@ -1,0 +1,862 @@
+name: ubuntu-desktop-session
+adopt-info: ubuntu-desktop-session
+summary: Ubuntu Desktop Session for the Ubuntu Core Desktop
+description: |
+  A strictly confined Ubuntu Desktop session for Ubuntu Core Desktop.
+
+grade: stable
+confinement: strict
+base: core24
+platforms:
+  all:
+    build-on: amd64
+    build-for: all
+
+package-repositories:
+ - type: apt
+   ppa: desktop-snappers/core-desktop
+
+environment:
+  HOME: $SNAP_REAL_HOME
+  XDG_CACHE_HOME: $SNAP_USER_COMMON/.cache
+  XDG_CONFIG_HOME: $SNAP_USER_COMMON/.config
+  XDG_DATA_HOME: $SNAP_USER_COMMON/.local/share
+  XDG_STATE_HOME: $SNAP_USER_COMMON/.local/state
+  LD_LIBRARY_PATH: $SNAP/gnome-platform/usr/lib:${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$SNAP/usr/lib:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR:$SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libunity:$SNAP/usr/lib:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR:$SNAP/lib:$SNAP/usr/lib/gnome-shell:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/mutter-14:$SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pulseaudio:$SNAP/usr/lib/gnome-settings-daemon-46:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/tracker-miners-3.0:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/tracker-3.0:$SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libcanberra-0.30:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gvfs
+  GSETTINGS_SCHEMA_DIR: $SNAP/gnome-platform/usr/share/glib-2.0/schemas:$SNAP/usr/share/glib-2.0/schemas${GSETTINGS_SCHEMA_DIR:+:$GSETTINGS_SCHEMA_DIR}
+  GI_TYPELIB_PATH: $SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/girepository-1.0:$SNAP/gnome-platform/usr/lib/girepository-1.0:$SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gjs/girepository-1.0:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/girepository-1.0:$SNAP/usr/lib/gnome-shell:$SNAP/usr/lib/gnome-shell/girepository-1.0:$SNAP/usr/lib/girepository-1.0:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/mutter-14${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}
+  SNAP_DESKTOP_RUNTIME: $SNAP/gnome-platform
+  PATH: /bin:/usr/bin:$SNAP/bin:$SNAP/usr/bin:$SNAP/usr/libexec:$SNAP/gnome-platform/bin:$SNAP/gnome-platform/usr/bin:$SNAP/gnome-platform/usr/libexec${PATH:+:$PATH}
+  XDG_DATA_DIRS: /usr/share:$SNAP/usr/share:$SNAP/gnome-platform/usr/share:$SNAP/data-dir:/var/lib/snapd/desktop${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}
+
+layout:
+  /usr/share/hwdata:
+    symlink: $SNAP/usr/share/hwdata
+  /usr/share/libinput:
+    symlink: $SNAP/gnome-platform/usr/share/libinput
+  /usr/share/xml/iso-codes:
+    symlink: $SNAP/gnome-platform/usr/share/xml/iso-codes
+  /usr/share/gnome-shell:
+    symlink: $SNAP/usr/share/gnome-shell
+  /usr/share/applications:
+    bind: $SNAP/usr/share/applications
+  /usr/share/glvnd:
+    symlink: $SNAP/usr/share/glvnd
+#    symlink: $SNAP/gpu-2404/usr/share/glvnd
+  /usr/share/X11:
+    symlink: $SNAP/gnome-platform/usr/share/X11
+  /usr/share/egl:
+    symlink: $SNAP/usr/share/egl
+    #symlink: $SNAP/gpu-2404/usr/share/egl
+  /usr/share/vulkan:
+    symlink: $SNAP/usr/share/vulkan
+    #symlink: $SNAP/gpu-2404/usr/share/vulkan
+  /usr/share/fonts:
+    bind: $SNAP/gnome-platform/usr/share/fonts
+  /usr/share/fontconfig:
+    bind: $SNAP/gnome-platform/usr/share/fontconfig
+  /usr/share/themes:
+    symlink: $SNAP/usr/share/themes
+  /usr/share/icons:
+    bind: $SNAP/usr/share/icons
+  /usr/share/mime:
+    symlink: $SNAP/gnome-platform/usr/share/mime
+  /usr/share/tracker3:
+    symlink: $SNAP/usr/share/tracker3
+  /usr/share/tracker3-miners:
+    symlink: $SNAP/usr/share/tracker3-miners
+  /usr/share/libwacom:
+    symlink: $SNAP/usr/share/libwacom
+  /usr/share/nautilus:
+    symlink: $SNAP/usr/share/nautilus
+  /usr/share/gtk-3.0:
+    symlink: $SNAP/gnome-platform/usr/share/gtk-3.0
+  /usr/share/gtk-4.0:
+    symlink: $SNAP/gnome-platform/usr/share/gtk-4.0
+  /usr/share/defaults:
+    symlink: $SNAP/gnome-platform/usr/share/defaults
+  /usr/share/xdg-desktop-portal:
+    symlink: $SNAP/usr/share/xdg-desktop-portal
+
+  /usr/share/libgnomekbd:
+    symlink: $SNAP/usr/share/libgnomekbd
+
+  /usr/share/dbus-1/interfaces/org.freedesktop.Accounts.User.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.Accounts.User.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.Tracker3.Miner.Files.Index.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.Tracker3.Miner.Files.Index.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.Accounts.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.Accounts.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.Tracker3.Miner.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.Tracker3.Miner.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.ColorHelper.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.ColorHelper.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.UPower.Device.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.UPower.Device.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.ColorManager.Device.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.ColorManager.Device.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.UPower.KbdBacklight.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.UPower.KbdBacklight.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.ColorManager.Profile.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.ColorManager.Profile.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.UPower.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.UPower.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.ColorManager.Sensor.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.ColorManager.Sensor.xml
+  /usr/share/dbus-1/interfaces/org.gnome.Shell.Extensions.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.gnome.Shell.Extensions.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.ColorManager.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.ColorManager.xml
+  /usr/share/dbus-1/interfaces/org.gnome.Shell.Introspect.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.gnome.Shell.Introspect.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.GeoClue2.Agent.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.GeoClue2.Agent.xml
+  /usr/share/dbus-1/interfaces/org.gnome.Shell.PadOsd.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.gnome.Shell.PadOsd.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.GeoClue2.Client.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.GeoClue2.Client.xml
+  /usr/share/dbus-1/interfaces/org.gnome.Shell.Screencast.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.gnome.Shell.Screencast.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.GeoClue2.Location.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.GeoClue2.Location.xml
+  /usr/share/dbus-1/interfaces/org.gnome.Shell.Screenshot.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.gnome.Shell.Screenshot.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.GeoClue2.Manager.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.GeoClue2.Manager.xml
+  /usr/share/dbus-1/interfaces/org.gnome.ShellSearchProvider2.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.gnome.ShellSearchProvider2.xml
+  /usr/share/dbus-1/interfaces/org.freedesktop.GeoClue2.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.freedesktop.GeoClue2.xml
+  /usr/share/dbus-1/interfaces/org.gnome.ShellSearchProvider.xml:
+    symlink: $SNAP/usr/share/dbus-1/interfaces/org.gnome.ShellSearchProvider.xml
+
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libcanberra-0.30:
+    symlink: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libcanberra-0.30
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-2.0/2.10.0:
+    symlink: $SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-2.0/2.10.0
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/dri:
+    symlink: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/dri
+    #symlink: $SNAP/gpu-2404/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/dri
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/vdpau:
+    symlink: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/vdpau
+    #symlink: $SNAP/gpu-2404/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/vdpau
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libgweather-4:
+    symlink: $SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libgweather-4
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/glib-2.0:
+    bind: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/glib-2.0
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/samba:
+    symlink: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/samba
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/tracker-miners-3.0:
+    symlink: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/tracker-miners-3.0
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/tracker-3.0:
+    symlink: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/tracker-3.0
+
+  /usr/libexec:
+    bind: $SNAP/usr/libexec
+
+  /etc/fonts:
+    bind: $SNAP/gnome-platform/etc/fonts
+  /etc/gnome:
+    bind: $SNAP/etc/gnome
+  /etc/profile.d/gnome-session_gnomerc.sh:
+    bind-file: $SNAP/etc/profile.d/gnome-session_gnomerc.sh
+  /etc/profile.d/xdg-dirs-desktop-session.sh:
+    bind-file: $SNAP/etc/profile.d/xdg-dirs-desktop-session.sh
+  /etc/glvnd:
+    bind: $SNAP/etc/glvnd
+  /etc/gtk-3.0:
+    bind: $SNAP/gnome-platform/etc/gtk-3.0
+  /etc/X11:
+    bind: $SNAP/gnome-platform/etc/X11
+  /etc/pulse:
+    bind: $SNAP/gnome-platform/etc/pulse
+  /etc/xdg/Xwayland-session.d:
+    bind: $SNAP/etc/xdg/Xwayland-session.d
+  /etc/xdg/menus:
+    symlink: $SNAP/etc/xdg/menus
+  /etc/xdg/xdg/user-dirs.conf:
+    symlink: $SNAP/gnome-platform/etc/xdg/user-dirs.conf
+  /etc/xdg/xdg/user-dirs.defaults:
+    symlink: $SNAP/gnome-platform/etc/xdg/user-dirs.defaults
+  /etc/geoclue:
+    bind: $SNAP/etc/geoclue
+
+  /usr/bin/Xwayland:
+    symlink: $SNAP/usr/bin/Xwayland
+  /usr/bin/X11:
+    symlink: $SNAP/usr/bin/X11
+  /usr/bin/xkbcomp:
+    symlink: $SNAP/usr/bin/xkbcomp
+  /usr/bin/xdg-user-dir:
+    symlink: $SNAP/usr/bin/xdg-user-dir
+  /usr/bin/xdg-user-dirs-update:
+    symlink: $SNAP/usr/bin/xdg-user-dirs-update
+  /usr/bin/gnome-session-quit:
+    symlink: $SNAP/usr/bin/gnome-session-quit
+  /usr/share/session-migration:
+    symlink: $SNAP/gnome-platform/usr/share/session-migration
+
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/webkit2gtk-4.0:
+    bind: $SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/webkit2gtk-4.0
+  /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/webkit2gtk-4.1:
+    bind: $SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/webkit2gtk-4.1
+  /usr/share/libdrm:
+    bind: $SNAP/gpu-2404/libdrm
+  /usr/share/drirc.d:
+    symlink: $SNAP/gpu-2040/drirc.d
+
+assumes:
+- snapd2.43
+hooks:
+  configure:
+    command-chain:
+      - command-chain/hooks-configure-fonts
+
+
+apps:
+  ubuntu-desktop-session:
+    command: run-session.sh
+    slots: &slotlist
+      - dbus-gnome-mutter-screencast
+      - dbus-gnome-nautilus
+      - dbus-freedesktop-impl-portal-gnome
+      - dbus-freedesktop-impl-portal-gtk
+      - dbus-ibus
+      - dbus-ibus-gtk3
+      - dbus-ibus-portal
+      - dbus-colord
+      - dbus-geoclue
+      - dbus-gnome-shell-calendar-server
+      - dbus-gtk-settings
+      - dbus-gnome-settings
+      - dbus-gsd-a11ysettings
+      - dbus-gsd-color
+      - dbus-gsd-datetime
+      - dbus-gsd-housekeeping
+      - dbus-gsd-keyboard
+      - dbus-gsd-mediakeys
+      - dbus-gsd-power
+      - dbus-gsd-printnotifications
+      - dbus-gsd-rfkill
+      - dbus-gsd-screensaverproxy
+      - dbus-gsd-sharing
+      - dbus-gsd-smartcard
+      - dbus-gsd-sound
+      - dbus-gsd-usbprotection
+      - dbus-gsd-wacom
+      - dbus-gsd-xsettings
+      - dbus-freedesktop-tracker3-miner-files
+      - dbus-a11y-bus
+      - dbus-freedesktop-impl-portal-screen-cast
+      - dbus-freedesktop-impl-portal-dynamic-launcher
+      - dbus-freedesktop-impl-portal-wallpaper
+      - dbus-freedesktop-impl-portal-screenshot
+      - dbus-freedesktop-impl-portal-print
+      - dbus-freedesktop-impl-portal-lockdown
+      - dbus-freedesktop-impl-portal-background
+      - dbus-freedesktop-impl-portal-appchooser
+      - dbus-freedesktop-impl-portal-account
+      - dbus-freedesktop-impl-portal-access
+      - dbus-freedesktop-impl-portal-filechooser
+      - dbus-freedesktop-impl-portal-settings
+      - desktop
+      - wayland
+      - x11
+
+#      - dbus-gnome-mutter-service-channel
+    plugs: &pluglist
+      - account-control
+      - audio-playback
+      - audio-record
+      - avahi-control
+      - bluetooth-control
+      - bluez
+      - cups-control
+      - desktop-launch
+      - dot-hidden
+      - dot-local-share-nautilus
+      - hardware-observe
+      - hostname-control
+      - home
+      - locale-control
+      - login-session-observe
+      - login-session-control
+      - mount-observe
+      - network-bind
+      - network-control
+      - network-observe
+      - network-manager
+      - opengl
+      - polkit-agent
+      - process-control
+      - shell-config-files
+      - shell-session-locale-files
+      - shutdown
+      - ssh-keys
+      - system-observe
+      - time-control
+      - timeserver-control
+      - timezone-control
+      - upower-observe
+
+  screencast-service:
+    command: run.sh $SNAP/usr/bin/gjs -m /usr/share/gnome-shell/org.gnome.Shell.Screencast
+    daemon: dbus
+    daemon-scope: user
+    activates-on:
+      - dbus-gnome-mutter-screencast
+    restart-delay: 1s
+    plugs: *pluglist
+    slots: *slotlist
+
+  nautilus-service:
+    command: run.sh $SNAP/usr/bin/nautilus --gapplication-service
+    daemon: dbus
+    daemon-scope: user
+    activates-on:
+      - dbus-gnome-nautilus
+    restart-delay: 1s
+    plugs: *pluglist
+    slots: *slotlist
+
+  ibus-service:
+    command: run.sh $SNAP/usr/bin/ibus-daemon --panel disable
+    daemon: dbus
+    daemon-scope: user
+    activates-on:
+      - dbus-ibus
+    restart-delay: 1s
+    plugs: *pluglist
+    slots: *slotlist
+
+  ibus-gtk3-service:
+    command: run.sh $SNAP/usr/libexec/ibus-extension-gtk3
+    daemon: dbus
+    daemon-scope: user
+    activates-on:
+      - dbus-ibus-gtk3
+    restart-delay: 1s
+    plugs: *pluglist
+    slots: *slotlist
+
+  ibus-portal-service:
+    command: run.sh $SNAP/usr/libexec/ibus-portal
+    restart-delay: 1s
+    daemon: dbus
+    daemon-scope: user
+    activates-on:
+      - dbus-ibus-portal
+    plugs: *pluglist
+    slots: *slotlist
+
+  colord:
+    command: run.sh $SNAP/usr/libexec/colord-session
+    daemon: dbus
+    daemon-scope: user
+    activates-on:
+      - dbus-colord
+    restart-delay: 1s
+    plugs: *pluglist
+    slots: *slotlist
+
+  geoclue:
+    command: run.sh /usr/libexec/geoclue
+    daemon: dbus
+    activates-on:
+      - dbus-geoclue
+    restart-delay: 1s
+    plugs: *pluglist
+    slots: *slotlist
+
+plugs:
+  dot-local-share-nautilus:
+    interface: personal-files
+    write:
+      - $HOME/.local/share/nautilus
+  dot-hidden:
+    interface: personal-files
+    write:
+      - $HOME/.hidden
+  shell-session-locale-files:
+    interface: personal-files
+    write:
+      - $HOME/.pam_environment
+      - $HOME/.xinputrc
+  shell-config-files:
+    interface: system-files
+    read:
+      - /etc/shells
+      - /etc/xdg/autostart
+      - /run/udev/tags/seat
+      - /etc/default/im-config
+      - /etc/default/locale
+  gtk-3-themes:
+    interface: content
+    target: $SNAP/data-dir/themes
+    default-provider: gtk-common-themes
+  icon-themes:
+    interface: content
+    target: $SNAP/data-dir/icons
+    default-provider: gtk-common-themes
+  sound-themes:
+    interface: content
+    target: $SNAP/data-dir/sounds
+    default-provider: gtk-common-themes
+  gnome-46-2404:
+    interface: content
+    target: $SNAP/gnome-platform
+    default-provider: gnome-46-2404
+  gpu-2404:
+    interface: content
+    target: $SNAP/gpu-2404
+    default-provider: mesa-2404
+
+slots:
+  dbus-a11y-bus:
+    interface: dbus
+    bus: session
+    name: org.a11y.Bus
+  dbus-canonical-unity:
+    interface: dbus
+    bus: session
+    name: com.canonical.Unity
+  dbus-desktop-icons:
+    interface: dbus
+    bus: session
+    name: com.rastersoft.ding
+  dbus-desktop-icons-extension:
+    interface: dbus
+    bus: session
+    name: com.rastersoft.dingextension
+  dbus-desktop-icons-test:
+    interface: dbus
+    bus: session
+    name: com.rastersoft.dingtest
+  dbus-freedesktop-tracker3-miner-files:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.Tracker3.Miner.Files
+  dbus-freedesktop-impl-portal-gnome:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.gnome
+  dbus-freedesktop-impl-portal-settings:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.settings
+  dbus-freedesktop-impl-portal-filechooser:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.FileChooser
+  dbus-freedesktop-impl-portal-access:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.Access
+  dbus-freedesktop-impl-portal-account:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.Account
+  dbus-freedesktop-impl-portal-appchooser:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.AppChooser
+  dbus-freedesktop-impl-portal-background:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.Background
+  dbus-freedesktop-impl-portal-lockdown:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.Lockdown
+  dbus-freedesktop-impl-portal-print:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.Print
+  dbus-freedesktop-impl-portal-screenshot:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.Screenshot
+  dbus-freedesktop-impl-portal-wallpaper:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.Wallpaper
+  dbus-freedesktop-impl-portal-dynamic-launcher:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.DynamicLauncher
+  dbus-freedesktop-impl-portal-screen-cast:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.ScreenCast
+  dbus-freedesktop-impl-portal-gtk:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.impl.portal.desktop.gtk
+  dbus-gnome-mutter-displayconfig:
+    interface: dbus
+    bus: session
+    name: org.gnome.Mutter.DisplayConfig
+  dbus-gnome-mutter-idlemonitor:
+    interface: dbus
+    bus: session
+    name: org.gnome.Mutter.IdleMonitor
+  dbus-gnome-mutter-inputcapture:
+    interface: dbus
+    bus: session
+    name: org.gnome.Mutter.InputCapture
+  dbus-gnome-mutter-inputmapping:
+    interface: dbus
+    bus: session
+    name: org.gnome.Mutter.InputMapping
+  dbus-gnome-mutter-remotedesktop:
+    interface: dbus
+    bus: session
+    name: org.gnome.Mutter.RemoteDesktop
+  dbus-gnome-mutter-screencast:
+    interface: dbus
+    bus: session
+    name: org.gnome.Mutter.ScreenCast
+  dbus-gnome-mutter-service-channel:
+    interface: dbus
+    bus: session
+    name: org.gnome.Mutter.ServiceChannel
+  dbus-gsd-color:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Color
+  dbus-gsd-power:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Power
+  dbus-gsd-rfkill:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Rfkill
+  dbus-gsd-wacom:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Wacom
+  dbus-gnome-shell:
+    interface: dbus
+    bus: session
+    name: org.gnome.Shell
+  dbus-gnome-shell-audio:
+    interface: dbus
+    bus: session
+    name: org.gnome.Shell.AudioDeviceSelection
+  dbus-gnome-shell-introspect:
+    interface: dbus
+    bus: session
+    name: org.gnome.Shell.Introspect
+  dbus-gnome-shell-portal:
+    interface: dbus
+    bus: session
+    name: org.gnome.Shell.Portal
+  dbus-gnome-shell-screenshield:
+    interface: dbus
+    bus: session
+    name: org.gnome.Shell.ScreenShield
+  dbus-gnome-shell-screenshot:
+    interface: dbus
+    bus: session
+    name: org.gnome.Shell.Screenshot
+  dbus-gnome-shell-wacom:
+    interface: dbus
+    bus: session
+    name: org.gnome.Shell.Wacom.PadOsd
+  dbus-gnome-keyring-sysprompter:
+    interface: dbus
+    bus: session
+    name: org.gnome.keyring.SystemPrompter
+  dbus-gtk-mountoperationhandler:
+    interface: dbus
+    bus: session
+    name: org.gtk.MountOperationHandler
+  dbus-gtk-notifications:
+    interface: dbus
+    bus: session
+    name: org.gtk.Notifications
+  dbus-kde-statusnotifier:
+    interface: dbus
+    bus: session
+    name: org.kde.StatusNotifierWatcher
+  dbus-freedesktop-screensaver:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.ScreenSaver
+  dbus-freedesktop-secrets:
+    interface: dbus
+    bus: session
+    name: org.freedesktop.secrets
+  dbus-gnome-cc:
+    interface: dbus
+    bus: session
+    name: org.gnome.ControlCenter
+  dbus-gnome-cc-search:
+    interface: dbus
+    bus: session
+    name: org.gnome.ControlCenter.SearchProvider
+  dbus-gnome-keyring:
+    interface: dbus
+    bus: session
+    name: org.gnome.keyring
+  dbus-gnome-magnifier:
+    interface: dbus
+    bus: session
+    name: org.gnome.Magnifier
+  dbus-gnome-panel:
+    interface: dbus
+    bus: session
+    name: org.gnome.Panel
+  dbus-gnome-screensaver:
+    interface: dbus
+    bus: session
+    name: org.gnome.ScreenSaver
+  dbus-gnome-sessionmanager:
+    interface: dbus
+    bus: session
+    name: org.gnome.SessionManager
+  dbus-gnome-shell-calendar-server:
+    interface: dbus
+    bus: session
+    name: org.gnome.Shell.CalendarServer
+  dbus-gsd:
+    interface: dbus
+    bus: session
+    name: org.gnome.Settings
+  dbus-gsd-a11ysettings:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.A11ySettings
+  dbus-gsd-datetime:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Datetime
+  dbus-gsd-housekeeping:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Housekeeping
+  dbus-gsd-keyboard:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Keyboard
+  dbus-gsd-mediakeys:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.MediaKeys
+  dbus-gsd-printnotifications:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.PrintNotifications
+  dbus-gsd-screensaverproxy:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.ScreensaverProxy
+  dbus-gsd-sharing:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Sharing
+  dbus-gsd-smartcard:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Smartcard
+  dbus-gsd-sound:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Sound
+  dbus-gsd-usbprotection:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.UsbProtection
+  dbus-gsd-wwan:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.Wwan
+  dbus-gsd-xsettings:
+    interface: dbus
+    bus: session
+    name: org.gnome.SettingsDaemon.XSettings
+  dbus-gnome-nautilus:
+    interface: dbus
+    bus: session
+    name: org.gnome.Nautilus
+  dbus-gnome-settings:
+    interface: dbus
+    bus: session
+    name: org.gnome.Settings
+  dbus-gnome-terminal:
+    interface: dbus
+    bus: session
+    name: org.gnome.Terminal
+  dbus-gtk-settings:
+    interface: dbus
+    bus: session
+    name: org.gtk.Settings
+  dbus-portal:
+    interface: dbus
+    name: org.freedesktop.impl.portal.PermissionStore
+    bus: session
+  dbus-ibus:
+    interface: dbus
+    name: org.freedesktop.IBus
+    bus: session
+  dbus-ibus-gtk3:
+    interface: dbus
+    name: org.freedesktop.IBus.Panel.Extension.Gtk3
+    bus: session
+  dbus-ibus-portal:
+    interface: dbus
+    name: org.freedesktop.portal.IBus
+    bus: session
+  dbus-colord:
+    interface: dbus
+    name: org.freedesktop.ColorHelper
+    bus: session
+  dbus-geoclue:
+    interface: dbus
+    name: org.freedesktop.GeoClue2
+    bus: system
+
+lint:
+  ignore:
+    - classic
+
+parts:
+  snapbuildtools:
+    source: https://github.com/sergio-costas/snap-build-tools.git
+    source-depth: 1
+    plugin: nil
+    source-branch: select-folders-to-clean
+    build-packages:
+      - python3-yaml
+    override-pull: |
+      craftctl default
+      $CRAFT_PART_SRC/install
+
+  scripts:
+    after: [ snapbuildtools ]
+    plugin: dump
+    source: ./scripts
+
+  ubuntu-desktop-session:
+    after: [ snapbuildtools ]
+    plugin: nil
+    build-packages:
+      - git
+    override-build: |
+      cd $CRAFT_PROJECT_DIR
+      craftctl set version=$(date +%Y%m%d)+git$(git rev-parse --short HEAD)
+
+  packages:
+    after: [ snapbuildtools ]
+    plugin: nil
+    build-packages:
+      - libglib2.0-bin
+      - gtk-update-icon-cache
+    stage-packages:
+      - alsa-ucm-conf
+      - at-spi2-core
+      - fonts-ubuntu
+      - gir1.2-clutter-1.0
+      - gir1.2-dbusmenu-glib-0.4
+      - gir1.2-gsound-1.0
+      - gir1.2-glib-2.0-dev
+      - gkbd-capplet
+      - gnome-control-center
+      - gnome-keyring
+      - gnome-menus
+      - gnome-settings-daemon
+      - gnome-shell
+      - gnome-shell-common
+      - gnome-shell-extension-appindicator
+      - gnome-shell-extension-desktop-icons-ng
+      - gnome-shell-extension-ubuntu-dock
+      - gnome-shell-extension-ubuntu-tiling-assistant
+      - gsound-tools
+      - hwdata
+      - ibus
+      - im-config
+      - inotify-tools
+      - iso-codes
+      - libcanberra-pulse
+      - libfreetype6
+      - libgdk-pixbuf-2.0-0
+      - libgjs0g
+      - libgl1-mesa-dri
+      - libglib2.0-0t64
+      - libgsound0
+      - libpam-gnome-keyring
+      - libsnapd-glib-2-1
+      - libsysmetrics1
+      - locales-all
+      - locales
+      - media-types
+      - polkitd
+      - pulseaudio-utils
+      - ubuntu-session
+      - ubuntu-settings
+      - xdg-desktop-portal
+      - xdg-desktop-portal-gnome
+      - xdg-desktop-portal-gtk
+      - xdg-user-dirs-gtk
+      - xdg-user-dirs
+      - xkb-data
+      - xwayland
+      - yaru-theme-gtk
+      - yaru-theme-gnome-shell
+      - yaru-theme-icon
+    build-environment:
+      - LD_LIBRARY_PATH: $CRAFT_PART_INSTALL/usr/lib:$CRAFT_PART_INSTALL/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+    build-snaps:
+      - core24
+      - gtk-common-themes
+      - gnome-46-2404
+      - mesa-2404
+    override-build: |
+
+      # remove duplicated files
+      $CRAFT_PROJECT_DIR/snapbuildtools/remove_common.py -e usr/libexec usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/glib-2.0/gio\*
+
+      # recreate icons cache
+      for ICONPATH in $CRAFT_PART_INSTALL/usr/share/icons/*; do
+        if [ -f ${ICONPATH}/index.theme ]; then
+          gtk-update-icon-cache -f $ICONPATH
+        fi
+      done
+
+      # compile schemas
+      glib-compile-schemas $CRAFT_PART_INSTALL/usr/share/glib-2.0/schemas
+
+      # point to the right path
+      sed -i 's@exec /usr/libexec@exec $SNAP/usr/libexec@g' $CRAFT_PART_INSTALL/usr/bin/gnome-session
+      for FILENAME in $CRAFT_PART_INSTALL/usr/share/applications/*.desktop; do
+        sed -i "s@Exec=/usr@Exec=/snap/ubuntu-desktop-session/current/usr@g" $FILENAME
+      done
+
+      # Force gsd-xsettings to use the regular DISPLAY connection. If it
+      # tries to connect to :1, gnome-shell will not auto-start Xwayland.
+      mv $CRAFT_PART_INSTALL/usr/libexec/gsd-xsettings $CRAFT_PART_INSTALL/usr/libexec/gsd-xsettings.real
+      cat <<\EOF > $CRAFT_PART_INSTALL/usr/libexec/gsd-xsettings
+      #!/bin/sh
+      export GNOME_SETUP_DISPLAY="$DISPLAY"
+      exec /usr/libexec/gsd-xsettings.real "$@"
+      EOF
+      chmod a+x $CRAFT_PART_INSTALL/usr/libexec/gsd-xsettings
+
+      # copy gio utils into usr/libexec
+      cp $CRAFT_PART_INSTALL/usr/lib/x86_64-linux-gnu/glib-2.0/gio* $CRAFT_PART_INSTALL/usr/libexec/
+
+      # delete the doc and help folders
+      rm -rf $CRAFT_PART_INSTALL/usr/share/doc
+      rm -rf $CRAFT_PART_INSTALL/usr/share/help
+      craftctl default
+
+  command-chain:
+    source: https://github.com/snapcore/snapcraft-desktop-integration.git
+    source-type: git
+    source-subdir: gnome
+    plugin: make
+    make-parameters:
+      - PLATFORM_PLUG=$SNAPCRAFT_PROJECT_NAME
+      - WITH_GRAPHICS=false
+
