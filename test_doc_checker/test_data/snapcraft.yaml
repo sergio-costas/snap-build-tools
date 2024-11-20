@@ -1,0 +1,1703 @@
+name: gnome-46-2404-sdk
+version: git
+summary: Shared GNOME 46 Ubuntu stack SDK
+description: |
+  This snap contains the GNOME 46 development files. These are used during the build process of snaps that depend on the GNOME 46 stack. This helps developers to make sure their application is built against the correct verson of GNOME and GTK libraries.  
+  
+  **For users**
+
+  This snap is automatically installed and removed when needed. **Manually adding or removing this snap is not recommended** and might break things.
+
+  * If you are having issues with **snaps** using GNOME, please contact the experts on the Snapcraft forum: https://forum.snapcraft.io/
+  * If you want to install the GNOME Desktop Environment, then you are in the wrong place. Please take a look at https://www.gnome.org/ for more information on how to get it.
+
+  **For developers**
+
+  * The `gnome` extension is the recommended way to use this in your own snap: https://snapcraft.io/docs/gnome-extension
+  * You can report issues with this SDK snap on GitHub: https://github.com/ubuntu/gnome-sdk/issues
+  * The source code of this snap is available on GitHub in the `gnome-46-2404-sdk` branch: https://github.com/ubuntu/gnome-sdk/tree/gnome-46-2404-sdk
+  * This snap is used for building snaps of applications using GNOME or GTK. If you are looking for instructions on how to build GNOME applications instead, take a look at https://developer.gnome.org/
+contact: https://github.com/ubuntu/gnome-sdk/issues
+
+confinement: strict
+grade: stable
+base: core24 # if the base is changed, the BUILDENV part must be updated
+
+parts:
+  buildenv:
+    plugin: nil
+    build-environment: &buildenv
+      - ACLOCAL_PATH: $CRAFT_STAGE/usr/share/aclocal
+      - XDG_DATA_DIRS: $CRAFT_STAGE/usr/share:/usr/share
+      - LD_LIBRARY_PATH: $CRAFT_STAGE/usr/lib/vala-0.56:$CRAFT_STAGE/usr/lib:$CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+      - GDK_PIXBUF_MODULE_FILE: $CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-2.0/2.10.0/loaders.cache
+      - PKG_CONFIG_PATH: $CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pkgconfig:$CRAFT_STAGE/usr/lib/pkgconfig:$CRAFT_STAGE/usr/share/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}
+      - CRAFT_EXT_CORE_LEVEL: core24
+
+  ninja:
+    plugin: nil
+    source: https://github.com/ninja-build/ninja.git
+    source-tag: 'v1.12.1'
+    source-depth: 1
+    override-build: |
+      rm -rf build
+      rm -f ninja
+      rm -f ninja_bootstrap
+      sed -i 's_^#!/usr/bin/env python$_#!/usr/bin/env python3_g' configure.py
+      ./configure.py --bootstrap
+      mv ninja ninja_bootstrap
+      rm -rf build
+      ./ninja_bootstrap
+      rm -f ninja_bootstrap
+      mkdir -p $CRAFT_PART_INSTALL/usr/bin
+      mv ninja $CRAFT_PART_INSTALL/usr/bin/
+    build-packages:
+      - python3
+
+  meson-deps:
+    after: [ ninja ]
+    plugin: nil
+    source: https://github.com/mesonbuild/meson.git
+    source-tag: '1.5.2'
+    source-depth: 1
+    override-build: |
+      python3 -m pip install --break-system-packages .
+      mkdir -p $CRAFT_PART_INSTALL/usr/lib/python3/dist-packages
+      rm -rf $CRAFT_PART_INSTALL/usr/lib/python3/dist-packages/meson*
+      python3 -m pip install --target=$CRAFT_PART_INSTALL/usr --break-system-packages .
+      mv $CRAFT_PART_INSTALL/usr/meson* $CRAFT_PART_INSTALL/usr/lib/python3/dist-packages/
+      sed -i "s%^#!/usr/bin/python3$%#!/usr/bin/env python3%g" /usr/local/bin/meson
+      sed -i "s%^#!/usr/bin/python3$%#!/usr/bin/env python3%g" $CRAFT_PART_INSTALL/usr/bin/meson
+    build-packages:
+      - python3-pip
+
+  libtool:
+    plugin: nil
+# ext:updatesnap
+#   version-format:
+#     ignore: true
+    stage-packages:
+      - libtool
+      - libtool-bin
+    override-stage: |
+      set -eux
+      craftctl default
+      LIBTOOLIZE=usr/bin/libtoolize
+      sed -i 's#pkgauxdir="#pkgauxdir="$CRAFT_STAGE#' $LIBTOOLIZE
+      sed -i 's#pkgltdldir="#pkgltdldir="$CRAFT_STAGE#' $LIBTOOLIZE
+      sed -i 's#aclocaldir="#aclocaldir="$CRAFT_STAGE#' $LIBTOOLIZE
+
+  libffi:
+    after: [ libtool, meson-deps ]
+    source: https://gitlab.freedesktop.org/gstreamer/meson-ports/libffi.git
+    source-tag: 'meson-3.2.9999.4'
+# ext:updatesnap
+#   version-format:
+#     format: 'meson-%M.%m.%R'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+    override-pull: |
+      craftctl default
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/libffi-enable-building-on-riscv64.patch
+
+  glib:
+    after: [ libffi, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/glib.git
+    source-tag: '2.82.1'
+# ext:updatesnap
+#   version-format:
+#     ignore-odd-minor: true
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dintrospection=enabled
+    build-environment: *buildenv
+    override-build: |
+      set -eux
+      craftctl default
+      mkdir -p $CRAFT_PART_INSTALL/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/glib-2.0/
+      cp $CRAFT_PART_INSTALL/usr/bin/{gio-querymodules,glib-compile-schemas} $CRAFT_PART_INSTALL/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/glib-2.0/
+    build-packages:
+      - pkg-config
+      - libmount-dev
+      - gcc
+      - g++
+      - clang
+# Use the packages rather than the gobject-introspection part to avoid a depends cycle
+      - gir1.2-glib-2.0-dev
+      - gobject-introspection
+
+  pixman:
+    after: [ glib, meson-deps ]
+    source: https://gitlab.freedesktop.org/pixman/pixman.git
+    source-tag: 'pixman-0.43.4'
+# ext:updatesnap
+#   version-format:
+#     format: 'pixman-%M.%m.%R'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dgtk=disabled
+    build-environment: *buildenv
+
+  cairo:
+    after: [ pixman, meson-deps ]
+    source: https://gitlab.freedesktop.org/cairo/cairo.git
+    source-tag: '1.18.2'
+# ext:updatesnap
+#   version-format:
+#     ignore-version: '1.17.8'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dxlib=enabled
+      - -Dpng=enabled
+      - -Dxcb=enabled
+      - -Dtee=enabled
+      - -Dzlib=enabled
+      - -Dtests=disabled
+    build-environment: *buildenv
+    build-packages:
+      - libfontconfig1-dev
+      - libfreetype-dev
+      - libx11-dev
+      - libxext-dev
+      - libxcb1-dev
+      - libxcb-render0-dev
+      - libxcb-shm0-dev
+      - libsm-dev
+      - zlib1g-dev
+      - liblzo2-dev
+
+  gobject-introspection:
+    after: [ cairo, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/gobject-introspection.git
+    # using 1.82.0 breaks libportal
+    source-tag: '1.80.1'
+# ext:updatesnap
+#   version-format:
+#     ignore-odd-minor: true
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dgtk_doc=false
+    build-environment: *buildenv
+    override-build: |
+      set -eux
+      craftctl default
+      sed -i "s#\([\"\']\)/usr/\([^\"\']*\)#os.environ.get\('CRAFT_STAGE'\) + \1/usr/\2#g" $CRAFT_PART_INSTALL/usr/bin/g-ir-scanner
+    build-packages:
+      - python3-dev
+      - bison
+      - flex
+
+  vala:
+    after: [ gobject-introspection ]
+    source: https://gitlab.gnome.org/GNOME/vala.git
+    source-tag: '0.56.17'
+    source-depth: 1
+# ext:updatesnap
+#   version-format:
+#     ignore-odd-minor: true
+    plugin: autotools
+    autotools-configure-parameters: [ --prefix=/usr ]
+    build-environment: *buildenv
+    build-packages:
+      - autoconf-archive
+      - valac
+      - libgraphviz-dev
+
+  at-spi2-core:
+    after: [ glib, gobject-introspection, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/at-spi2-core.git
+    source-tag: 'AT_SPI2_CORE_2_52_0'
+# ext:updatesnap
+#   version-format:
+#     format: 'AT_SPI2_CORE_%M_%m_%R'
+#     lower-than: 2.53
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dintrospection=enabled
+      - -Ddocs=false
+    build-environment: *buildenv
+    build-packages:
+      - libdbus-1-dev
+      - libxtst-dev
+
+  fribidi:
+    after: [ meson-deps ]
+    source: https://github.com/fribidi/fribidi.git
+    source-tag: 'v1.0.16'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Ddocs=false
+    build-environment: *buildenv
+
+  harfbuzz:
+    after: [ fribidi, meson-deps ]
+    source: https://github.com/harfbuzz/harfbuzz.git
+    source-tag: '10.0.1' # developers declared that they won't break ABI
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Dgraphite2=enabled
+      - -Dintrospection=enabled
+      - -Dgobject=enabled
+      - -Doptimization=3
+      - -Ddebug=true
+      - --default-library=both
+    build-environment: *buildenv
+    override-build: |
+      set -eux
+      craftctl default
+      for PC in $CRAFT_PART_INSTALL/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pkgconfig/harfbuzz*.pc;
+      do
+        sed -i 's#exec_prefix=/usr#exec_prefix=${prefix}#' $PC
+        sed -i 's#libdir=/usr#libdir=${prefix}#' $PC
+        sed -i 's#includedir=/usr#includedir=${prefix}#' $PC
+      done
+      for f in `find $CRAFT_PART_INSTALL/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR |grep \\.la`; do
+        sed -i "s#^libdir='/usr/lib#libdir='$CRAFT_STAGE/usr/lib#g" $f
+      done
+    build-packages:
+      - ragel
+      - libgraphite2-dev
+
+  pango:
+    after: [ libffi, harfbuzz, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/pango.git
+    source-tag: '1.54.0'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dbuild-testsuite=false
+      - -Ddocumentation=false
+      - -Dintrospection=enabled
+      - -Dbuild-examples=false
+    build-environment: *buildenv
+    build-packages:
+      - libthai-dev
+      - libxft-dev
+      - libxrender-dev
+      - libxt-dev
+      - cmake
+
+  gdk-pixbuf:
+    after: [ pango, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/gdk-pixbuf.git
+    source-tag: '2.42.12'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dinstalled_tests=false
+      - -Dgtk_doc=false
+      - -Ddocs=false
+      - -Dintrospection=enabled
+      - -Dman=false
+      - -Dtests=false
+      - -Dinstalled_tests=false
+    build-environment: *buildenv
+    override-build: |
+      set -eux
+      craftctl default
+      cp $CRAFT_PART_INSTALL/usr/bin/gdk-pixbuf-query-loaders $CRAFT_STAGE/usr/bin/
+      LOADERS_PATH=$CRAFT_PART_INSTALL/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-2.0/2.10.0/loaders
+      $CRAFT_PART_INSTALL/usr/bin/gdk-pixbuf-query-loaders $LOADERS_PATH/*.so > $LOADERS_PATH.cache
+      # workaround for thumbnailer being in a different directory in the snap env
+      sed -i 's#/usr/bin/##' $CRAFT_PART_INSTALL/usr/share/thumbnailers/gdk-pixbuf-thumbnailer.thumbnailer
+    organize:
+      usr/bin/gdk-pixbuf-query-loaders: usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders
+    build-packages:
+      - libpng-dev
+      - libjpeg-dev
+      - libtiff-dev
+
+  librsvg:
+    after: [ gdk-pixbuf, vala, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/librsvg.git
+    source-tag: '2.59.1' # they left the odd->unstable even->stable scheme, and now tags are stable
+# ext:updatesnap
+#   version-format:
+#     no-9x-revisions: true
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dintrospection=enabled
+      - -Dvala=enabled
+      - -Dpixbuf=enabled
+      - -Dpixbuf-loader=enabled
+      - -Ddocs=disabled
+      - -Dtests=false
+    build-environment: *buildenv
+    build-packages:
+      - libssl-dev
+      - curl
+    override-pull: |
+      craftctl default
+      # cargo version in .deb is too old
+      curl https://sh.rustup.rs -sSf > cargo.sh
+      sh ./cargo.sh -y
+      export PATH=$PATH:$HOME/.cargo/bin
+      ~/.cargo/bin/cargo install cargo-c
+      cp ~/.cargo/bin/* /usr/local/bin
+
+  epoxy:
+    after: [ librsvg, meson-deps ]
+    source: https://github.com/anholt/libepoxy.git
+    source-tag: '1.5.10'  # Note minor version of tag/branch can be even or odd and be stable
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+    build-packages:
+      - libgl1-mesa-dev
+      - libegl1-mesa-dev
+      - xutils-dev
+
+  json-glib:
+    after: [ epoxy, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/json-glib.git
+    source-tag: '1.10.0'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dgtk_doc=disabled
+    build-environment: *buildenv
+
+  libpsl:
+    after: [ json-glib, meson-deps ]
+    source: https://github.com/rockdaboot/libpsl.git
+    source-tag: '0.21.5'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Druntime=libidn2
+      #- -Dtests=false # available in master, not in 0.21.2
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+    build-packages:
+      - libidn2-dev
+      - libunistring-dev
+    override-pull: |
+      set -eux
+      craftctl default
+      sed -i 's#^\#!/usr/bin/env python$#\#!/usr/bin/env python3#g' src/psl-make-dafsa
+
+  libsoup2:
+    after: [ libpsl, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/libsoup.git
+    source-tag: '2.74.3'
+# ext:updatesnap
+#   version-format:
+#     lower-than: 3
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dvapi=enabled
+      - -Dtls_check=false #disable build time check, but we need to ensure glib-networking is available at runtime
+    build-environment: *buildenv
+    build-packages:
+      - libsqlite3-dev
+      - libkrb5-dev
+      - libbrotli-dev
+
+  libsoup3:
+    after: [ libpsl, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/libsoup.git
+    source-tag: '3.6.0'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dvapi=enabled
+      - -Dtls_check=false #disable build time check, but we need to ensure glib-networking is available at runtime
+    build-environment: *buildenv
+    build-packages:
+      - libsqlite3-dev
+      - libkrb5-dev
+      - libbrotli-dev
+      - libnghttp2-dev
+
+  librest:
+    after: [ libsoup3, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/librest.git
+    source-tag: '0.9.1'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dvapi=true
+      - -Dexamples=false
+      - -Dgtk_doc=false
+      - -Dsoup2=false
+      - -Dtests=false
+    build-environment: *buildenv
+    build-packages:
+      - gtk-doc-tools
+
+  wayland-protocols:
+    after: [ meson-deps ]
+    source: https://gitlab.freedesktop.org/wayland/wayland-protocols.git
+    source-tag: '1.38'
+    source-depth: 1
+    build-packages:
+      - libwayland-dev
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dtests=false
+    build-environment: *buildenv
+
+  gtk3:
+    after: [ wayland-protocols, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/gtk.git
+    source-tag: '3.24.43'
+# ext:updatesnap
+#   version-format:
+#     ignore-odd-minor: true
+#     lower-than: 4
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dbroadway_backend=true
+      - -Dx11_backend=true
+      - -Dwayland_backend=true
+      - -Dwin32_backend=false
+      - -Dquartz_backend=false
+      - -Dxinerama=yes
+      - -Dintrospection=true
+      - -Dbuiltin_immodules=yes
+      - -Ddemos=false
+      - -Dexamples=false
+    build-environment: *buildenv
+    organize:
+      usr/lib/gtk-3.0: usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gtk-3.0
+      usr/bin/gtk-query-immodules-3.0: usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libgtk-3-0/gtk-query-immodules-3.0
+    build-packages:
+      - libxkbcommon-dev
+      - libxinerama-dev
+      - libcups2-dev
+      - libcolord-dev
+      - libwayland-dev
+      - libxrandr-dev
+      - libxcursor-dev
+      - libxcomposite-dev
+      - libxdamage-dev
+      - libxfixes-dev
+      - libxi-dev
+      - libxkbfile-dev
+      - libxml2-utils
+    override-pull: |
+      craftctl default
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/gdkglcontext-wayland-Fallback-to-GLES-2_0-after-GL-failed.patch
+
+  gtk4:
+    after: [ wayland-protocols, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/gtk.git
+    source-tag: '4.16.3'
+# ext:updatesnap
+#   version-format:
+#     ignore-odd-minor: true
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dbroadway-backend=true
+      - -Dx11-backend=true
+      - -Dwayland-backend=true
+      - -Dwin32-backend=false
+      - -Dmacos-backend=false
+      - -Dintrospection=enabled
+      - -Ddocumentation=false
+      - -Dbuild-examples=false
+      - -Dbuild-tests=false
+      - -Dmedia-gstreamer=enabled
+      - -Dbuild-demos=false
+      - -Dbuild-testsuite=false
+      - -Dbuild-examples=false
+      - -Dbuild-tests=false
+      - -Dprint-cups=enabled
+    build-environment: *buildenv
+    organize:
+      usr/lib/gtk-4.0: usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gtk-4.0
+    build-packages:
+      - libxkbcommon-dev
+      - libcups2-dev
+      - libcolord-dev
+      - libxrandr-dev
+      - libxcursor-dev
+      - libxcomposite-dev
+      - libxdamage-dev
+      - libxfixes-dev
+      - libxi-dev
+      - libxkbfile-dev
+      - libxml2-utils
+      - libgstreamer-plugins-bad1.0-dev
+      - libvulkan-dev
+      - libwayland-dev
+      - glslc
+      - libgraphene-1.0-dev
+    stage:
+      - -usr/bin/wayland-scanner
+      - -usr/lib/*/libwayland-client.so.0.20.0
+      - -usr/lib/*/libwayland-server.so.0.20.0
+
+  gtk-locales:
+    after: [ gtk3, gtk4 ]
+    plugin: nil
+    build-environment: *buildenv
+    override-pull: |
+      set -eux
+      apt-get download "language-pack-gnome-*-base"
+    override-build: |
+      set -eux
+      for deb in *.deb; do dpkg-deb -x $deb .; done
+      find usr/share/locale-langpack -type f -not -name "gtk30*.mo" -exec rm '{}' \;
+      mkdir -p $CRAFT_PART_INSTALL/usr/share
+      cp -r usr/share/locale-langpack $CRAFT_PART_INSTALL/usr/share/
+
+  libadwaita:
+    source: https://gitlab.gnome.org/GNOME/libadwaita.git
+    source-tag: '1.6.1'
+    source-depth: 1
+    after: [ meson-deps, gtk4 ]
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dintrospection=enabled
+      - -Dvapi=true
+      - -Dgtk_doc=false
+      - -Dtests=false
+      - -Dexamples=false
+    build-environment: *buildenv
+    build-packages:
+      - sassc
+      - libyaml-dev
+      - libzstd-dev
+      - libsystemd-dev
+      - gperf
+      - libappstream-dev
+    override-pull: |
+      craftctl default
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/stylesheet-common-Use-disabled-opacity-for-disabled-pictu.patch
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/stylesheet-common-Use-opacity-for-all-disabled-gtk-images.patch
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/accent-color-Return-return-orange-as-default-color.patch
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/style-manager-Support-Yaru-accent-colors.patch
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/accent-color-Always-expose-and-use-yaru-accent-colors-val.patch
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/style-Add-wartybrown-accent-support.patch
+
+  libportal:
+    after: [gtk3, gtk4, gtk-locales, meson-deps ]
+    plugin: meson
+    source: https://github.com/flatpak/libportal.git
+    source-tag: '0.8.1'
+    source-depth: 1
+    build-environment: *buildenv
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Ddocs=false
+      - -Dintrospection=true
+      - -Dvapi=true
+      - -Dbackend-gtk3=enabled
+      - -Dbackend-gtk4=enabled
+      - -Dbackend-qt5=disabled
+      - -Dtests=false
+      - -Dportal-tests=false
+
+  mm-common:
+    after: [ libportal, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/mm-common.git
+    source-tag: '1.0.6'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Duse-network=true
+    override-build: |
+      set -eux
+      craftctl default
+    build-environment: *buildenv
+    build-packages:
+      - wget
+
+  glibmm:
+    after: [ mm-common ]
+    source: https://gitlab.gnome.org/GNOME/glibmm.git
+    source-tag: '2.82.0'
+    source-depth: 1
+    plugin: autotools
+    override-build: |
+      set -eux
+
+      # Make sure all of the *.am files from mm-common are found
+      mkdir -p /usr/bin
+      mkdir -p /usr/share/mm-common/build/
+      mkdir -p /usr/share/mm-common/doctool/
+      cp $CRAFT_STAGE/usr/bin/mm-common-prepare /usr/bin/mm-common-prepare
+      cp $CRAFT_STAGE/usr/bin/mm-common-get /usr/bin/mm-common-get
+      cp $CRAFT_STAGE/usr/share/mm-common/build/*.am /usr/share/mm-common/build/
+      cp $CRAFT_STAGE/usr/share/mm-common/doctool/* /usr/share/mm-common/doctool/
+      # needed for cairomm
+      cp $CRAFT_STAGE/usr/share/mm-common/build/*.py /usr/share/mm-common/build/
+
+      # Manual build of glibmm
+      cd $CRAFT_PART_BUILD
+      ./autogen.sh --prefix=/usr
+      make -j8
+      make install DESTDIR=$CRAFT_PART_INSTALL
+      for f in `find $CRAFT_PART_INSTALL/usr/lib |grep \\.la`; do
+        sed -i "s#^libdir='/usr/lib#libdir='$CRAFT_STAGE/usr/lib#g" $f
+      done
+    build-packages:
+      - libsigc++-3.0-dev
+      - libxml-parser-perl
+    build-environment: *buildenv
+
+  cairomm:
+    after: [ glibmm, meson-deps ]
+    source: https://gitlab.freedesktop.org/cairo/cairomm.git
+    source-tag: '1.18.0'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dmaintainer-mode=false
+      - -Dbuild-documentation=false
+      - -Dbuild-examples=false
+    build-environment: *buildenv
+    build-packages:
+      - doxygen
+
+  pangomm:
+    after: [ pango, libffi,  cairomm, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/pangomm.git
+    source-tag: '2.54.0'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dmaintainer-mode=true
+      - -Dbuild-documentation=false
+    build-environment:
+      - ACLOCAL_PATH: $CRAFT_STAGE/usr/share/aclocal
+      - XDG_DATA_DIRS: $CRAFT_STAGE/usr/share:/usr/share
+      - LD_LIBRARY_PATH: $CRAFT_STAGE/usr/lib/vala-0.56:$CRAFT_STAGE/usr/lib:$CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+      - GDK_PIXBUF_MODULE_FILE: $CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-2.0/2.10.0/loaders.cache
+      - PKG_CONFIG_PATH: $CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pkgconfig:$CRAFT_STAGE/usr/lib/pkgconfig:$CRAFT_STAGE/usr/share/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}
+      - CRAFT_EXT_CORE_LEVEL: core24
+      - M4PATH: $CRAFT_STAGE/usr/lib/glibmm-2.68/proc/m4
+    override-build: |
+      set -eux
+      mkdir -p ../src/untracked/build_scripts/
+      cp -p $CRAFT_STAGE/usr/share/mm-common/build/generate-binding.py ../src/untracked/build_scripts/
+      craftctl default
+
+  atkmm:
+    after: [ pangomm ]
+    source: https://gitlab.gnome.org/GNOME/atkmm.git
+    source-tag: '2.36.3'
+    source-depth: 1
+# ext:updatesnap
+#   version-format:
+#     lower-than: '2.53.3'
+    plugin: autotools
+    override-build: |
+      set -eux
+      cd $CRAFT_PART_BUILD
+      ./autogen.sh --prefix=/usr
+      make -j8
+      make install DESTDIR=$CRAFT_PART_INSTALL
+    build-environment:
+      - ACLOCAL_PATH: $CRAFT_STAGE/usr/share/aclocal
+      - XDG_DATA_DIRS: $CRAFT_STAGE/usr/share:/usr/share
+      - LD_LIBRARY_PATH: $CRAFT_STAGE/usr/lib/vala-0.56:$CRAFT_STAGE/usr/lib:$CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+      - GDK_PIXBUF_MODULE_FILE: $CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-2.0/2.10.0/loaders.cache
+      - PKG_CONFIG_PATH: $CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pkgconfig:$CRAFT_STAGE/usr/lib/pkgconfig:$CRAFT_STAGE/usr/share/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}
+      - CRAFT_EXT_CORE_LEVEL: core24
+      - M4PATH: $CRAFT_STAGE/usr/lib/glibmm-2.68/proc/m4
+
+  gtkmm:
+    after: [ atkmm, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/gtkmm.git
+    source-tag: '4.16.0'
+    source-depth: 1
+# ext:updatesnap
+#   version-format:
+#     lower-than: 5
+#     no-9x-minors: true
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dmaintainer-mode=true
+      - -Dbuild-documentation=false
+      - -Dbuild-demos=false
+    build-packages:
+      - graphviz
+    build-environment:
+      - ACLOCAL_PATH: $CRAFT_STAGE/usr/share/aclocal
+      - XDG_DATA_DIRS: $CRAFT_STAGE/usr/share:/usr/share
+      - LD_LIBRARY_PATH: $CRAFT_STAGE/usr/lib/vala-0.56:$CRAFT_STAGE/usr/lib:$CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+      - GDK_PIXBUF_MODULE_FILE: $CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-2.0/2.10.0/loaders.cache
+      - PKG_CONFIG_PATH: $CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pkgconfig:$CRAFT_STAGE/usr/lib/pkgconfig:$CRAFT_STAGE/usr/share/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}
+      - CRAFT_EXT_CORE_LEVEL: core24
+      - M4PATH: $CRAFT_STAGE/usr/lib/glibmm-2.68/proc/m4
+    override-build: |
+      set -eux
+      mkdir -p ../src/untracked/build_scripts/
+      cp -p $CRAFT_STAGE/usr/share/mm-common/build/generate-binding.py ../src/untracked/build_scripts/
+      craftctl default
+
+  gtksourceview:
+    after: [ gtkmm, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/gtksourceview.git
+    source-tag: '5.14.1'
+# ext:updatesnap
+#   version-format:
+#     ignore-odd-minor: true
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+    build-packages:
+      - gettext
+      - libxml2-dev
+    override-pull: |
+      set -eux
+      craftctl default
+      sed -i 's#Werror=missing-include-dirs#Wmissing-include-dirs#g' meson.build
+
+  libdazzle:
+    after: [ gtksourceview, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/libdazzle.git
+    source-tag: '3.44.0'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+    override-pull: |
+      set -eux
+      craftctl default
+      sed -i 's#Werror=missing-include-dirs#Wmissing-include-dirs#g' meson.build
+
+  libcanberra:
+    after: [ libdazzle ]
+    source: http://0pointer.de/lennart/projects/libcanberra/libcanberra-0.30.tar.xz
+# ext:updatesnap
+#   version-format:
+#     ignore: true
+    plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=/usr
+      - --with-builtin=pulse
+    build-environment: *buildenv
+    override-build: |
+      ./autogen.sh
+      craftctl default
+    build-packages:
+      - libasound2-dev
+      - libvorbis-dev
+      - libtdb-dev
+      - libpulse-dev
+      - libgstreamer1.0-dev
+      - libltdl-dev
+
+  gsound:
+    after: [ libcanberra, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/gsound.git
+    source-tag: '1.0.3'
+    source-depth: 1
+    source-type: git
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+
+  gsettings-desktop-schemas:
+    after: [ gsound, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/gsettings-desktop-schemas.git
+    source-tag: '46.1'
+# ext:updatesnap
+#   version-format:
+#     same-major: true
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+    override-build: |
+      set -eux
+      craftctl default
+      PC=$CRAFT_PART_INSTALL/usr/share/pkgconfig/gsettings-desktop-schemas.pc
+      sed -i 's#-I/usr#-I${prefix}#' $PC
+
+  gnome-desktop:
+    after: [ gsettings-desktop-schemas, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/gnome-desktop.git
+    source-tag: '44.1'
+# ext:updatesnap
+#   version-format:
+#     same-major: true
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+    build-packages:
+      - iso-codes
+      - itstool
+      - libseccomp-dev
+      - libudev-dev
+      - xkb-data
+      - yelp-tools
+
+  cogl:
+    after: [ gnome-desktop ]
+    source: https://gitlab.gnome.org/Archive/cogl.git
+    source-tag: '1.22.8'
+    source-depth: 1
+    plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=/usr
+      - --enable-wayland-egl-platform=yes
+      - --enable-kms-egl-platform=yes
+      - --enable-introspection=yes
+      - --enable-gdk-pixbuf
+      - --enable-cogl-pango
+      - --enable-gl
+      - --enable-xlib-egl-platform
+      - --enable-gles2
+      - --with-gles2-libname=libGLESv2.so.2
+    build-environment: *buildenv
+    build-packages:
+      - libgbm-dev
+      - libgles2-mesa-dev
+      - xauth
+      - xvfb
+      - libgstreamer-plugins-base1.0-dev
+
+  libwacom:
+    after: [ cogl, meson-deps ]
+    source: https://github.com/linuxwacom/libwacom
+    source-type: git
+    source-tag: 'libwacom-2.13.0'
+# ext:updatesnap
+#   version-format:
+#     format: 'libwacom-%M.%m.%R'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dtests=disabled
+      - -Ddocumentation=disabled
+    build-environment: *buildenv
+
+  libinput:
+    after: [ libwacom, meson-deps ]
+    source: https://gitlab.freedesktop.org/libinput/libinput.git
+    source-tag: '1.26.2'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Ddocumentation=false
+    build-environment: *buildenv
+    build-packages:
+      - check
+      - libmtdev-dev
+      - libudev-dev
+      - libevdev-dev
+
+  clutter:
+    after: [ cogl, json-glib, libinput, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/clutter.git
+    source-tag: '1.26.4'
+# ext:updatesnap
+#   version-format:
+#     ignore: true
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dbuild_examples=false
+      - -Ddocumentation=false
+      - -Dbuild_tests=false
+      - -Dpixbuf_tests=false
+    build-environment: *buildenv
+    build-packages:
+      - libdrm-dev
+      - xsltproc
+      - libgudev-1.0-dev
+    stage:
+      - -usr/bin/gapplication
+      - -usr/bin/gdbus
+      - -usr/bin/gio*
+      - -usr/bin/glib*
+      - -usr/bin/gobject-query
+      - -usr/bin/gresource
+      - -usr/bin/gsettings
+      - -usr/bin/gtester*
+      - -usr/include/gio-unix-2.0/gio/gdesktopappinfo.h
+      - -usr/include/gio-unix-2.0/gio/gunixmounts.h
+      - -usr/include/glib-2.0/*
+      - -usr/include/pixman-1/*
+      - -usr/lib/*/glib-2.0/*
+      - -usr/lib/*/libffi*
+      - -usr/lib/*/libgio*
+      - -usr/lib/*/libglib*
+      - -usr/lib/*/libgmodule*
+      - -usr/lib/*/libgobject*
+      - -usr/lib/*/libgthread*
+      - -usr/lib/*/libpixman*
+      - -usr/lib/*/pkgconfig/gio*
+      - -usr/lib/*/pkgconfig/glib-2.0.pc
+      - -usr/lib/*/pkgconfig/gmodule*
+      - -usr/lib/*/pkgconfig/gobject-2.0.pc
+      - -usr/lib/*/pkgconfig/gthread-2.0.pc
+      - -usr/lib/*/pkgconfig/libffi.pc
+      - -usr/lib/*/pkgconfig/pixman-1.pc
+      - -usr/share/aclocal/glib-2.0.m4
+      - -usr/share/aclocal/gsettings.m4
+      - -usr/share/glib-2.0/*
+      - -usr/lib/*/girepository-1.0/GIRepository-2.0.typelib
+      - -usr/lib/*/girepository-1.0/GLib-2.0.typelib
+      - -usr/lib/*/girepository-1.0/GObject-2.0.typelib
+      - -usr/lib/*/girepository-1.0/Gio-2.0.typelib
+      - -usr/lib/*/libgirepository*
+      - -usr/include/fribidi/*
+      - -usr/lib/*/libfribidi*
+      - -usr/lib/*/pkgconfig/fribidi.pc
+      - -usr/include/harfbuzz/*
+      - -usr/share/gir-1.0/HarfBuzz-0.0.gir
+      - -usr/bin/pango*
+      - -usr/include/pango-1.0/pango/*
+      - -usr/lib/*/girepository-1.0/Pango*
+      - -usr/lib/*/libpango*
+      - -usr/lib/*/pkgconfig/pango*
+      - -usr/share/gir-1.0/Pango*
+      - -usr/bin/gdk-pixbuf*
+      - -usr/include/gdk-pixbuf-2.0/gdk-pixbuf/gdk-pixbuf-features.h
+      - -usr/lib/*/gdk-pixbuf-2.0/*
+      - -usr/lib/*/girepository-1.0/GdkPixbuf-2.0.typelib
+      - -usr/lib/*/libgdk_pixbuf*
+      - -usr/lib/*/pkgconfig/gdk-pixbuf*
+      - -usr/share/gir-1.0/GdkPix*
+      - -usr/bin/wayland-scanner
+      - -usr/include/wayland*
+      - -usr/share/aclocal/wayland-scanner.m4
+      - -usr/share/wayland/wayland.xml
+
+  clutter-gtk:
+    after: [ clutter, meson-deps ]
+    source: https://gitlab.gnome.org/Archive/clutter-gtk.git
+    source-tag: '1.8.4'  # ancient tag. should just build from master since it gets updates (like clutter)
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+
+  libpeas:
+    after: [ clutter-gtk, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/libpeas.git
+    source-tag: 'libpeas-1.36.0' # developers say that they don't want to break ABI, so it should be safe to always update
+# ext:updatesnap
+#   version-format:
+#     format: 'libpeas-%M.%m.%R'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dpython2=true
+      - -Dpython3=true
+      - -Dintrospection=true
+      - -Dvapi=true
+      - -Ddemos=true
+      - -Dglade_catalog=false
+      - -Dgtk_doc=false
+    build-environment: *buildenv
+    build-packages:
+      - python3-dev
+      - python-gi-dev
+
+  pycairo:
+    after: [ libpeas, meson-deps ]
+    source: https://github.com/pygobject/pycairo.git
+    source-tag: 'v1.27.0'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+
+  pygobject:
+    after: [ pycairo, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/pygobject.git
+    source-tag: '3.50.0'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+
+  libhandy:
+    after: [ pygobject, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/libhandy.git
+    source-tag: '1.8.3'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dgtk_doc=false
+      - -Dtests=false
+      - -Dexamples=false
+      - -Dglade_catalog=disabled
+    build-environment: *buildenv
+
+  gjs:
+    after: [ libhandy, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/gjs.git
+    source-tag: '1.80.2'
+# ext:updatesnap
+#   version-format:
+#     same-minor: true
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dskip_gtk_tests=true
+      - -Dskip_dbus_tests=true
+      - -Dinstalled_tests=false
+    build-environment: *buildenv
+    build-packages:
+      - dbus
+      - libmozjs-115-dev
+
+  p11-kit:
+    after: [ gjs, meson-deps ]
+    source: https://github.com/p11-glue/p11-kit.git
+    source-tag: '0.25.5'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dhash_impl=internal
+      - -Dtrust_paths=/etc/ssl/certs/ca-certificates.crt
+    build-packages:
+      - libtasn1-6-dev
+    build-environment: *buildenv
+
+  libsecret:
+    after: [ p11-kit, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/libsecret.git
+    source-tag: '0.21.4'
+    source-depth: 1
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dgtk_doc=false
+    build-packages:
+      - libgcrypt20-dev
+    build-environment: *buildenv
+
+  libgnome-games-support:
+    after: [ libsecret, meson-deps ]
+    source: https://gitlab.gnome.org/GNOME/libgnome-games-support.git
+    source-type: git
+    source-tag: '2.0.0'
+    source-depth: 1
+# ext:updatesnap
+#   version-format:
+#     same-major: true
+#     ignore-odd-minor: true
+    plugin: meson
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-environment: *buildenv
+    build-packages:
+      - libgee-0.8-dev
+
+  libgeocode-libsoup2:
+    source: https://gitlab.gnome.org/GNOME/geocode-glib.git
+    after: [ libgnome-games-support, glib, meson-deps, gobject-introspection, libsoup2, libffi ]
+    source-tag: '3.26.4'
+    source-depth: 1
+    plugin: meson
+    build-environment: *buildenv
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Denable-installed-tests=false
+      - -Denable-introspection=true
+      - -Denable-gtk-doc=false
+      - -Dsoup2=true
+    build-packages:
+      - libnghttp2-dev
+
+  libgeocode:
+    source: https://gitlab.gnome.org/GNOME/geocode-glib.git
+    after: [ libgnome-games-support, glib, meson-deps, gobject-introspection, libsoup3, libffi ]
+    source-tag: '3.26.4'
+    source-depth: 1
+    plugin: meson
+    build-environment: *buildenv
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Denable-installed-tests=false
+      - -Denable-introspection=true
+      - -Denable-gtk-doc=false
+      - -Dsoup2=false
+    build-packages:
+      - libnghttp2-dev
+
+  libgweather:
+    after: [ libgeocode, meson-deps, gobject-introspection ]
+    source: https://gitlab.gnome.org/GNOME/libgweather.git
+    source-tag: '4.4.4'
+# ext:updatesnap
+#   version-format:
+#     ignore-odd-minor: true
+    source-depth: 1
+    plugin: meson
+    build-environment: *buildenv
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dintrospection=true
+      - -Dgtk_doc=false
+      - -Dtests=false
+      - -Dsoup2=false
+    override-pull: |
+      craftctl default
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/libgweather.diff
+      sed -i 's#CRAFT_ENV_REPLACE#/usr/lib:/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR#' $CRAFT_PART_SRC/data/meson.build
+    build-packages:
+      - gir1.2-glib-2.0
+
+  libgweather-libsoup2:
+    after: [ libgeocode-libsoup2, meson-deps, gobject-introspection ]
+    source: https://gitlab.gnome.org/GNOME/libgweather.git
+    source-tag: '4.4.4'
+# ext:updatesnap
+#   version-format:
+#     ignore-odd-minor: true
+    source-depth: 1
+    plugin: meson
+    build-environment: *buildenv
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -Dintrospection=true
+      - -Dgtk_doc=false
+      - -Dtests=false
+      - -Dsoup2=true
+    override-pull: |
+      craftctl default
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/libgweather.diff
+      sed -i 's#CRAFT_ENV_REPLACE#/usr/lib:/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR#' $CRAFT_PART_SRC/data/meson.build
+    build-packages:
+      - gir1.2-glib-2.0
+
+  webp-pixbuf-loader:
+    after: [meson-deps, gdk-pixbuf]
+    source: https://github.com/aruiz/webp-pixbuf-loader.git
+    source-tag: '0.2.7'
+    source-depth: 1
+    plugin: meson
+    build-environment: *buildenv
+    meson-parameters:
+      - --prefix=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+    build-packages:
+      - libwebp-dev
+
+  libayatana-ido:
+    after: [glib, gtk3]
+    source: https://github.com/AyatanaIndicators/ayatana-ido.git
+    source-tag: '0.10.4'
+    source-depth: 1
+    plugin: cmake
+    build-environment: *buildenv
+    cmake-parameters:
+      - -DCMAKE_INSTALL_PREFIX=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -DENABLE_TESTS=OFF
+    build-packages:
+      - cmake
+    stage:
+      - usr/share/gir-1.0/Aya*
+      - usr/share/vala/aya*
+      - usr/include/ayata*
+      - usr/lib/*/pkgconfig/*.pc
+      - usr/lib/*/*ido*
+      - usr/lib/*/girepository-1.0/Ayatana*
+    override-build: |
+      set -eux
+      craftctl default
+      for PC in $CRAFT_PART_INSTALL/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pkgconfig/*.pc;
+      do
+        sed -i 's#exec_prefix=/usr#exec_prefix=${prefix}#' $PC
+        sed -i 's#libdir=/usr#libdir=${prefix}#' $PC
+        sed -i 's#includedir=/usr#includedir=${prefix}#' $PC
+      done
+
+  libayatana-appindicator:
+    after: [libayatana-ido, glib, gtk3]
+    source: https://github.com/AyatanaIndicators/libayatana-appindicator.git
+    source-tag: '0.5.93'
+    source-depth: 1
+    plugin: cmake
+    build-environment: *buildenv
+    cmake-parameters:
+      - -DCMAKE_INSTALL_PREFIX=/usr
+      - -Doptimization=3
+      - -Ddebug=true
+      - -DENABLE_TESTS=OFF
+      - -DENABLE_GTKDOC=OFF
+      - -DENABLE_BINDINGS_MONO=OFF
+      - -DCMAKE_SHARED_LINKER_FLAGS="-lpcre"
+    build-packages:
+      - libayatana-indicator3-dev
+      - libdbusmenu-glib-dev
+      - libdbusmenu-gtk3-dev
+      - libpcre3-dev
+      - cmake
+    stage-packages:
+      - libayatana-indicator3-dev
+      - libdbusmenu-glib-dev
+      - libdbusmenu-gtk3-dev
+    stage:
+      - usr/share/gir-1.0/AyatanaAppIndicator*
+      - usr/share/gir-1.0/Dbusmenu*
+      - usr/share/vala/vapi/Ayatana*
+      - usr/share/vala/vapi/Dbusmenu*
+      - usr/include/*ayata*
+      - usr/include/*dbusmenu*
+      - usr/lib/*/pkgconfig/*indica*.pc
+      - usr/lib/*/pkgconfig/*dbusmenu*.pc
+      - usr/lib/*/*indica*
+      - usr/lib/*/*dbusmenu*
+      - usr/lib/*/girepository-1.0/AyatanaAppIndicator*
+      - usr/lib/*/girepository-1.0/Dbusmenu*
+    override-build: |
+      set -eux
+      craftctl default
+      for PC in $CRAFT_PART_INSTALL/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pkgconfig/*.pc;
+      do
+        sed -i 's#exec_prefix=/usr#exec_prefix=${prefix}#' $PC
+        sed -i 's#libdir=/usr#libdir=${prefix}#' $PC
+        sed -i 's#includedir=/usr#includedir=${prefix}#' $PC
+      done
+
+  debs:
+    after: [ libgeocode-libsoup2, libgweather-libsoup2, libgnome-games-support, libadwaita, libgweather, libayatana-appindicator, libsoup3, librest, at-spi2-core, webp-pixbuf-loader ]
+    plugin: nil
+    stage-packages:
+      - appstream
+      - appstream-util
+      - libappstream-dev
+      - desktop-file-utils
+      - libglut3.12
+      - libglut-dev
+      - gcc
+      - gettext
+      - itstool
+      - libappstream5
+      - libblkid1
+      - libbrotli1
+      - libbrotli-dev
+      - libcairo2-dev
+      - libcanberra-gtk3-dev
+      - libcrypt1
+      - libcurl4t64
+      - libcurl4-openssl-dev
+      - libdbus-1-3
+      - libdbus-1-dev
+      - libxcb-dri3-0
+      - libdrm2
+      - libdrm-dev
+      - libdrm-common
+      - libegl-mesa0
+      - libegl1-mesa-dev
+      - libexpat1
+      - libevdev2
+      - libfontconfig1-dev
+      - libfreetype6
+      - libgbm-dev
+      - libgraphene-1.0-dev
+      - libgcr-3-dev
+      - libgcrypt20
+      - libgcrypt20-dev
+      - libgee-0.8-2
+      - libgee-0.8-dev
+      - libgl1-mesa-dev
+      - libglu1-mesa
+      - libglu1-mesa-dev
+      - libgmp10
+      - libgnutls28-dev
+      - libgnutls30t64
+      - libgnutls-dane0t64
+      - libgspell-1-dev
+      - libgstreamer-plugins-base1.0-0
+      - libgstreamer-plugins-bad1.0-0
+      - libgstreamer-plugins-good1.0-0
+      - libgudev-1.0-dev
+      - libgvc6
+      - libgraphviz-dev
+      - libhogweed6t64
+      - libgpg-error0
+      - libidn2-0
+      - libjpeg-dev
+      - libkrb5-3
+      - liblcms2-dev
+      - libltdl-dev
+      - liblzo2-dev
+      - liblzo2-2
+      - liblzma5
+      - libmount-dev
+      - libmount1
+      - libmozjs-115-dev
+      - libmtdev1t64
+      - libnettle8t64
+      - libnghttp2-14
+      - libnghttp2-dev
+      - libnotify-dev
+      - libnsl2
+      - libnss3
+      - libnss3-dev
+      - libopenjp2-7
+      - libopenjp2-7-dev
+      - libpcre2-8-0
+      - libpcre3
+      - libpcre3-dev
+      - libpng16-16t64
+      - libpulse0
+      - libpulse-dev
+      - libwrap0
+      - libpython3-dev
+      - libpython3.12-dev
+      - libpython3.12-minimal
+      - libpython3.12-stdlib
+      - libseccomp-dev
+      - libseccomp2
+      - libselinux1
+      - libsepol2
+      - libsigc++-2.0-0v5
+      - libsigc++-2.0-dev
+      - libsigc++-3.0-0
+      - libsigc++-3.0-dev
+      - libsqlite3-0
+      - libsqlite3-dev
+      - libstdc++6
+      - libsystemd0
+      - libsystemd-dev
+      - libtasn1-6
+      - libtdb1
+      - libthai-dev
+      - libudev-dev
+      - libudev1
+      - libunity-dev
+      - libuuid1
+      - libva-dev
+      - libvorbisfile3
+      - libvulkan-dev
+      - libwayland-dev
+      - libwebkit2gtk-4.1-dev
+      - libx11-xcb-dev
+      - libxcb-render0-dev
+      - libxcb-shm0-dev
+      - libxcomposite-dev
+      - libxcursor-dev
+      - libxdamage-dev
+      - libxext-dev
+      - libxft-dev
+      - libxi-dev
+      - libxinerama-dev
+      - libxkbcommon0
+      - libxkbcommon-dev
+      - libxml2-dev
+      - libxml2-utils
+      - libxrandr-dev
+      - libxrender-dev
+      - libxtst-dev
+      - libyaml-0-2
+      - libzstd1
+      - libbz2-1.0
+      - pkg-config
+      - python3-dev
+      - python3-distlib
+      - python3-minimal
+      - python3-pip
+      - python3-pkg-resources
+      - python3-setuptools
+      - python3-venv
+      - python3-wheel
+      - python3.12-minimal
+      - python3.12-venv
+      - shared-mime-info
+      - zlib1g-dev
+      - zlib1g
+      - libwebp-dev
+      - libpoppler-dev
+      - libpoppler-glib-dev
+      - gir1.2-poppler-0.18
+      # the package is intel specific
+      - on amd64:
+        - libigdgmm-dev
+    override-build: |
+      set -eux
+      craftctl default
+      cd $CRAFT_STAGE/usr
+      find . -type f,l -exec rm -f $CRAFT_PART_INSTALL/usr/{} \;
+      find . -type f,l -name "*.so*" -exec bash -c "rm -f $CRAFT_PART_INSTALL/usr/{}*" \;
+      cd $CRAFT_STAGE/usr/lib
+      find . -type f,l -exec rm -f $CRAFT_PART_INSTALL/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/{} \;
+      find . -type f,l -name "*.so*" -exec bash -c "rm -f $CRAFT_PART_INSTALL/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/{}*" \;
+      cd $CRAFT_STAGE/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR
+      find . -type f,l -exec rm -f $CRAFT_PART_INSTALL/usr/lib/{} \;
+      find . -type f,l -name "*.so*" -exec bash -c "rm -f $CRAFT_PART_INSTALL/usr/lib/{}*" \;
+      # FIXME, need to figure out why libayatana-appindicator install those
+      rm -f $CRAFT_PART_INSTALL/usr/lib/*/libatk-1.0.so*
+      rm -f $CRAFT_PART_INSTALL/usr/lib/*/libatk-bridge-2.0.so*
+      rm -f $CRAFT_PART_INSTALL/usr/lib/*/libatspi.so*
+
+  conditioning:
+    after: [ debs ]
+    plugin: nil
+    build-environment: *buildenv
+    build-packages:
+      - execstack
+    override-prime: |
+      set -eux
+      craftctl default
+
+      glib-compile-schemas usr/share/glib-2.0/schemas
+      update-mime-database usr/share/mime
+      for dir in usr/share/icons/*; do
+        if [ -f "$dir/index.theme" ]; then
+          gtk-update-icon-cache --force "$dir"
+        fi
+      done
+
+      for PC in $(find . -path "*/pkgconfig/*.pc")
+      do
+        sed -i 's#prefix=$CRAFT_STAGE#prefix=/snap/gnome-46-2404-sdk/current#' $PC
+        sed -i 's#prefix = /usr#prefix=/snap/gnome-46-2404-sdk/current/usr#' $PC
+        sed -i 's#prefix=/usr#prefix=/snap/gnome-46-2404-sdk/current/usr#' $PC
+        sed -i 's#original_prefix=/snap/gnome-46-2404-sdk/current/usr#original_prefix=/usr#' $PC
+
+        sed -i 's#libdir=/usr#libdir=${prefix}#' $PC
+        sed -i 's#libdir=/lib#libdir=/snap/gnome-46-2404-sdk/current/lib#' $PC
+
+        sed -i 's#exec_prefix=/usr#exec_prefix=${prefix}#' $PC
+        sed -i 's#includedir=/usr#includedir=${prefix}#' $PC
+        sed -i 's#sysconfdir=/etc#sysconfdir=/snap/gnome-46-2404-sdk/current/etc#' $PC
+
+        sed -i 's#/usr/#/snap/gnome-46-2404-sdk/current/usr/#g' $PC
+        sed -i 's#/etc/#/snap/gnome-46-2404-sdk/current/etc/#g' $PC
+      done
+
+      if [ "$CRAFT_ARCH_TRIPLET_BUILD_FOR" = "x86_64-linux-gnu" ]; then
+        sed -i 's#includedir=${prefix}/snap/gnome-46-2404-sdk/current#includedir=${prefix}#' $CRAFT_PRIME/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pkgconfig/igdgmm.pc
+      fi
+
+      sed -i 's#/usr/bin/python#python3#' usr/bin/glib-mkenums
+
+      LIBTOOLIZE=usr/bin/libtoolize
+      sed -i 's#pkgauxdir="$CRAFT_STAGE#pkgauxdir="/snap/gnome-46-2404-sdk/current#' $LIBTOOLIZE
+      sed -i 's#pkgltdldir="$CRAFT_STAGE#pkgltdldir="/snap/gnome-46-2404-sdk/current#' $LIBTOOLIZE
+      sed -i 's#aclocaldir="$CRAFT_STAGE#aclocaldir="/snap/gnome-46-2404-sdk/current#' $LIBTOOLIZE
+
+      SCANNER=usr/bin/g-ir-scanner
+      sed -i 's#$CRAFT_STAGE#/snap/gnome-46-2404-sdk/current#g' $SCANNER
+
+      ITSTOOL=usr/bin/itstool
+      sed -i 's#/usr/local/share#/snap/gnome-46-2404-sdk/current/usr/local/share#g' $ITSTOOL
+      sed -i 's#/usr/share#/snap/gnome-46-2404-sdk/current/usr/share#g' $ITSTOOL
+
+      GDK_PIXBUF_PATH=usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-2.0
+      LOADERS=$GDK_PIXBUF_PATH/2.10.0/loaders.cache
+      rm -f $CRAFT_PRIME/$GDK_PIXBUF_PATH/2.10.0/loaders/*.so
+      cp -a $CRAFT_STAGE/$GDK_PIXBUF_PATH/2.10.0/loaders/*.so $CRAFT_PRIME/$GDK_PIXBUF_PATH/2.10.0/loaders/
+      $GDK_PIXBUF_PATH/gdk-pixbuf-query-loaders $CRAFT_PRIME/$GDK_PIXBUF_PATH/2.10.0/loaders/*.so > $CRAFT_PRIME/$LOADERS
+      sed -i 's#/root/parts/gdk-pixbuf/install#/snap/gnome-46-2404-sdk/current#g' $CRAFT_PRIME/$LOADERS
+      sed -i 's#/build/gnome-46-2404-sdk/parts/gdk-pixbuf/install#/snap/gnome-46-2404-sdk/current#g' $CRAFT_PRIME/$LOADERS
+
+      XML2_CONFIG=usr/bin/xml2-config
+      sed -i 's#/root/parts/debs/install#/snap/gnome-46-2404-sdk/current#g' $XML2_CONFIG
+
+      rm -f usr/lib/vala-current
+      rm -f usr/share/gettext-current
+      rm -f usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-current
+      ln -s vala-0.56 usr/lib/vala-current
+      ln -s gettext-0.19.8 usr/share/gettext-current
+      ln -s gdk-pixbuf-2.0/2.10.0 usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gdk-pixbuf-current
+
+      # Fix dangling symlink by overwriting it
+      ln -sf lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libc_malloc_debug.so.0 usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libc_malloc_debug.so
+      # CHECK THIS When changing the core base, this line must be update
+      cp /snap/$CRAFT_EXT_CORE_LEVEL/current/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libc_malloc_debug.so.0 lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/
+
+      # Necessary for armhf builds, triggers review warning
+      if [ "$CRAFT_ARCH_TRIPLET_BUILD_FOR" = "arm-linux-gnueabihf" ]; then
+        execstack --clear-execstack  usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libde265.so.0*
+      fi
+
+  # Used by the gnome snapcraft extensions to load translations from within the content snap
+  bindtextdomain:
+    after: [ conditioning ]
+    plugin: nil
+    override-build: |
+      set -eux
+      mkdir -p $CRAFT_PART_INSTALL/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR
+      gcc -Wall -O2 -o $CRAFT_PART_INSTALL/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/bindtextdomain.so -fPIC -shared $CRAFT_PROJECT_DIR/tools/bindtextdomain.c -ldl
+
+  cleanup:
+    after: [ conditioning ]
+    plugin: nil
+    build-packages:
+      - python3-pip
+      - zip
+      - python3-apt
+    override-prime: |
+      set -eux
+
+      rm -rf root
+      rm -rf usr/share/doc
+      rm -rf usr/share/man
+      rm -rf usr/libexec/*/installed-tests
+      rm -rf usr/libexec/installed-tests
+      rm -f usr/lib/*.la
+      rm -f usr/lib/*/*.la
+
+      # Cleanup from libunity addition
+      rm -f usr/bin/dbus-binding-tool
+      rm -f usr/bin/unity-scope-loader
+      rm -rf usr/lib/python2.7
+      rm -f usr/share/glib-2.0/schemas/com.canonical.Unity.Lenses.gschema.xml
+      rm -rf usr/share/lintian/overrides
+      rm -rf usr/share/locale-langpack/kab
+      rm -f usr/share/unity/client-scopes.json
+
+      find . -type d -empty -delete
+
+      PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      DEBUG_BUILDID=usr/lib/debug/.build-id
+      mkdir -p $DEBUG_BUILDID
+
+      OLDPATH=$PATH
+      python3 -m pip install --break-system-packages pyyaml pyelftools
+      $CRAFT_PROJECT_DIR/tools/strip_binaries.py $CRAFT_PRIME $DEBUG_BUILDID
+      PATH=$OLDPATH
+      echo Symbols compressed
+      rm -fr $DEBUG_BUILDID
