@@ -7,6 +7,6 @@ else
 fi
 
 mkdir -p $FINAL_FOLDER
-for ITEM in set_python_runtime remove_common parse_env; do
+for ITEM in set_python_runtime remove_common parse_env test_doc_checker; do
     cp $CRAFT_PART_SRC/$ITEM/$ITEM.py $FINAL_FOLDER/
 done
