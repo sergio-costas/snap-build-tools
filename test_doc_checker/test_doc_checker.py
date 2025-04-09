@@ -237,9 +237,9 @@ def find_missing_meson_options(part_name):
         if option["name"] in parameters:
             # if an option is already configured in snapcraft.yaml, jump over
             continue
-        if option["desired"] and option["value"] in ["true", "enabled"]:
-            # if the default value is enabled and we want it that way, it doesn't need to be configured
-            continue
+        # if the default value is enabled and we want it that way, it doesn't need to be configured,
+        # BUT is good to configure it anyway to allow the dependency checker to detect if a dependency
+        # is missing.
         if (not option["desired"]) and option["value"] in ["false", "disabled"]:
             # if the default value is disabled and we want it that way, it doesn't need to be configured
             continue
