@@ -39,7 +39,7 @@ class Configuration:
         self._mapping_list = mappings
         self._extensions_list = extensions
         self._mappings = self._generate_mappings(self._global_maps, self._mapping_list)
-        self._extensions_paths = []
+        self._extensions_paths = self._generate_extensions_paths(extensions, self._mappings)
         self._yaml = None
 
         if verbose:
@@ -52,15 +52,6 @@ class Configuration:
 
     def add_exclude(self, exclude):
         self._global_excludes += exclude
-
-
-    def add_mapping(self, extension, mapping):
-        while extension[0] == '/':
-            extension = extension[1:]
-        if mapping is not None:
-            if mapping[-1] != '/':
-                mapping += '/'
-        self._mappings[extension] = mapping
 
     @property
     def exclude_list(self):
@@ -80,11 +71,11 @@ class Configuration:
     def process_snapcraft_yaml(self):
         """ Reads the snapcraft.yaml file and processes it to extract extensions and mappings """
         self._load_snapcraft_yaml()
-        self._extensions = self._get_extensions_list(self._extensions_list)
+        extensions = self._get_extensions_list(self._extensions_list)
         if len(self._extensions) == 0:
             raise RuntimeError("Called remove_common.py without a list of snaps, and no 'build-snaps' entry in the snapcraft.yaml file.")
         self._mappings = self._generate_mappings(self._global_maps, self._mapping_list)
-        self._extensions_paths = self._generate_extensions_paths(self._extensions, self._mappings)
+        self._extensions_paths = self._generate_extensions_paths(extensions, self._mappings)
 
 
     def _load_snapcraft_yaml(self):

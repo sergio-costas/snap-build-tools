@@ -23,8 +23,7 @@ class base_system:
 
         self._config = remove_common.Configuration()
         # maps must end in "/", like "usr/"
-        self._config.add_mapping(self._gnome_46_path, None)
-        self._config.add_mapping(self._gtk_common_themes_path, "usr/")
+        self._config._extensions_paths = [(self._gnome_46_path, None), (self._gtk_common_themes_path, "usr/")]
 
         os.makedirs(self._gtk_common_themes_path)
         os.makedirs(self._gnome_46_path)
