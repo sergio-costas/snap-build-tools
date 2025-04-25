@@ -27,7 +27,7 @@ args = parser.parse_args()
 
 class Configuration:
     """ Contains all the desired configuration for removing common files """
-    def __init__(self, *, verbose = False, quiet = False, mappings = [], excludes = [], extensions = []):
+    def __init__(self, *, verbose = False, quiet = False, mappings = [], excludes = None, extensions = []):
         """ Initialized the class
 
         Parameters
@@ -44,7 +44,7 @@ class Configuration:
             be prefixed by 'usr/' to match the corresponding path in our snap. By default []
         excludes : list, optional
             A list of strings with rules to exclude files. These rules can contain
-            wildcard characters like in a shell command line; thus * and ?. By default []
+            wildcard characters like in a shell command line; thus * and ?. By default None
         extensions : list, optional
             _description_, by default []
         """
@@ -52,7 +52,7 @@ class Configuration:
         self._global_excludes = ['usr/share/icons/*/index.theme']
         self._global_maps = ['gtk-common-themes:usr']
 
-        if len(excludes) != 0:
+        if ( excludes is not None) and len(excludes) != 0:
             self._global_excludes += excludes
 
         self._custom_extensions = []
