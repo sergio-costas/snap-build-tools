@@ -293,6 +293,70 @@ def check_if_exists(config, relative_file_path):
             return True
     return False
 
+def find_symlinks(snap_folder):
+    """"Find symlinks
+
+    Searches the snap being built for symlinks, and stores the original file.
+    This is needed to ensure that no dangling symlinks are left in the new
+    snap.
+
+    Parameters
+    ----------
+    snap_folder : string
+        The path of the folder where are the possible symlinks to duplicated files.
+
+    Returns
+    -------
+    dictionary string : array[string]
+        A dictionary where each key is a destination file, and the value is an array
+        with all the symlinks pointing to that file.
+    """
+
+    symlinks = {}
+    for full_symlink_path in glob.glob(os.path.join(snap_folder, "**/*"), recursive=True):
+        if not os.path.islink(full_symlink_path):
+            continue
+        destination = os.path.realpath(full_symlink_path)
+        if not os.path.isfile(destination):
+            continue
+        if destination not in symlinks:
+            symlinks[destination] = []
+        symlinks[destination].append(full_symlink_path)
+    return symlinks
+
+def _remove_duplicated_file(full_file_path, symlink_list):
+    """ Deletes a file that we know that is duplicated, and ensures that if a
+    symlink points to it, the symlink will be replaced with a copy of the file.
+    But if it is a symlink, it will be removed from the list of symlinks to
+    avoid re-creating it in case that the symlink is deleted after.
+
+    Parameters
+    ----------
+    full_file_path : string
+        The full path to the file/symlink to delete
+
+    symlink_list : dictionary string : [string]
+        A dictionary with full path to files as keys, and an array of all the
+        full paths of symlinks pointing to that file as the value.
+
+    Returns
+    -------
+    An integer with the number of bytes freed after deleting that file.
+    """
+
+    if full_file_path in symlink_list:
+        for link_path in symlink_list[full_file_path]:
+            if os.path.exists(link_path):
+                os.remove(link_path)
+                os.link(full_file_path, link_path)
+    duplicated_bytes = 0
+    real_path = os.path.realpath(full_file_path)
+    if os.path.exists(real_path):
+        file_data = os.stat(full_file_path)
+        if os.path.isfile(full_file_path) and (file_data.st_nlink == 1):
+            duplicated_bytes = file_data.st_size
+    os.remove(full_file_path)
+    return duplicated_bytes
 
 def main(*, snap_folder, config):
     """Main function
@@ -316,6 +380,8 @@ def main(*, snap_folder, config):
     """
 
     duplicated_bytes = 0
+    symlink_list = find_symlinks(snap_folder)
+
     for full_file_path in glob.glob(os.path.join(snap_folder, "**/*"), recursive=True):
         if not os.path.isfile(full_file_path) and not os.path.islink(full_file_path):
             continue
@@ -332,9 +398,7 @@ def main(*, snap_folder, config):
         if do_exclude:
             continue
         if check_if_exists(config, relative_file_path):
-            if os.path.isfile(full_file_path):
-                duplicated_bytes += os.stat(full_file_path).st_size
-            os.remove(full_file_path)
+            duplicated_bytes += _remove_duplicated_file(full_file_path, symlink_list)
             if config.verbose:
                 print(f"Removing duplicated file {relative_file_path} {full_file_path}")
     if not config.quiet:
