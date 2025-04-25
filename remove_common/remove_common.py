@@ -51,7 +51,7 @@ class Configuration:
 
 
     def add_exclude(self, exclude):
-        self._global_excludes += exclude
+        self._global_excludes.append(exclude)
 
     @property
     def exclude_list(self):
@@ -72,7 +72,7 @@ class Configuration:
         """ Reads the snapcraft.yaml file and processes it to extract extensions and mappings """
         self._load_snapcraft_yaml()
         extensions = self._get_extensions_list(self._extensions_list)
-        if len(self._extensions) == 0:
+        if len(extensions) == 0:
             raise RuntimeError("Called remove_common.py without a list of snaps, and no 'build-snaps' entry in the snapcraft.yaml file.")
         self._mappings = self._generate_mappings(self._global_maps, self._mapping_list)
         self._extensions_paths = self._generate_extensions_paths(extensions, self._mappings)
