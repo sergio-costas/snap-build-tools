@@ -117,6 +117,7 @@ entries in it, but it is possible to override this by manually putting the list 
 in the command line (this is a must to preserve compatibility with the old behavior).
 
 You can also add the *-v* argument to have *verbose* output of which files are being removed.
+Also, you can add the *-q* parameter, which will remove any output to the screen.
 
 Also, it is possible to add *-e path1/\* path2/\*.so ...* to exclude several paths or
 files from being checked and/or removed.
@@ -133,3 +134,6 @@ Remember to add this in *each* part that has *stage-packages*. Parts without sta
 packages don't need this. The *build-snaps* statement only needs to be put once, so it's better
 to put it in the *snapbuildtools* part (the one added at the beginning for installing these
 tools).
+
+Also, another way is to create a single part with all the stage packages, thus reducing
+the number of times that the script has to be called.
