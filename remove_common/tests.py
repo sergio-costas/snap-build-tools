@@ -15,22 +15,25 @@ class base_system:
         self._base_folder = tempfile.mkdtemp()
         self._snap_path = os.path.join(self._base_folder, "snaps")
         # this is the path for icons
-        self._gtk_common_themes_path = os.path.join(self._snap_path, "gtk-common-themes")
+        self._gtk_common_themes_path = os.path.join(self._snap_path, "gtk-common-themes", "current")
         # this is the path for other files
-        self._gnome_46_path = os.path.join(self._snap_path, "gnome-46")
+        self._gnome_46_path = os.path.join(self._snap_path, "gnome-46", "current")
         # this is the path where files already available at any of the previous folders must be deleted
         self._install_path = os.path.join(self._base_folder, "install")
 
-        self._exclude = []
-        for exclude in remove_common.global_excludes:
-            self.add_exclude(exclude)
+        self._config = remove_common.Configuration(extensions = ["gnome-46", "gtk-common-themes"],
+                                                   mappings = ["gtk-common-themes:usr"],
+                                                   snap_prefix = self._snap_path)
+        # maps must end in "/", like "usr/"
 
         os.makedirs(self._gtk_common_themes_path)
         os.makedirs(self._gnome_46_path)
         os.makedirs(self._install_path)
 
+
     def set_craft_project_dir(self, folder):
         os.environ['CRAFT_PROJECT_DIR'] = os.path.join(os.getcwd(), folder)
+
 
     def delete_folders(self):
         shutil.rmtree(self._base_folder)
@@ -42,6 +45,7 @@ class base_system:
         if (mode == ONLY_IN_BASE) or (mode == IN_BOTH):
             os.makedirs(os.path.join(self._install_path, "usr", "share", "icons", name), exist_ok=True)
 
+
     def create_icon(self, theme, name, mode):
         self.create_icons_folder(theme, mode)
         if (mode == ONLY_IN_BASE) or (mode == IN_BOTH):
@@ -49,14 +53,17 @@ class base_system:
         if (mode == ONLY_IN_INSTALL) or (mode == IN_BOTH):
             self._create_empty_file(os.path.join(self._install_path, "usr", "share", "icons", theme, name))
 
+
     def create_folder(self, path, mode):
         if (mode == ONLY_IN_BASE) or (mode == IN_BOTH):
             os.makedirs(os.path.join(self._gnome_46_path, path), exist_ok=True)
         if (mode == ONLY_IN_INSTALL) or (mode == IN_BOTH):
             os.makedirs(os.path.join(self._install_path, path), exist_ok=True)
 
+
     def _create_empty_file(self, path):
         open(path, "w").close()
+
 
     def create_file(self, fullpath, mode):
         path, name = os.path.split(fullpath)
@@ -66,13 +73,15 @@ class base_system:
         if (mode == ONLY_IN_INSTALL) or (mode == IN_BOTH):
             self._create_empty_file(os.path.join(self._install_path, path, name))
 
+
     def add_exclude(self, exclude):
-        self._exclude.append(exclude)
+        self._config.add_exclude(exclude)
+
 
     def remove_common(self):
-        # maps must end in "/", like "usr/"
-        maps = ((self._gnome_46_path, None), (self._gtk_common_themes_path, "usr/"))
-        remove_common.main(self._install_path, maps, self._exclude)
+        remove_common.main(snap_folder=self._install_path,
+                           config = self._config)
+
 
     def file_exists(self, path):
         full_path = os.path.join(self._install_path, path)
@@ -126,7 +135,8 @@ class TestRemoveCommon(unittest.TestCase):
     # Configure function tests
 
     def test_get_extension_list_from_cmdline(self):
-        extension_list = remove_common.get_extension_list(["extension1", "extension2"])
+        config = remove_common.Configuration()
+        extension_list = config._get_extensions_list(["extension1", "extension2"])
         self.assertEqual(len(extension_list), 2)
         self.assertTrue("extension1" in extension_list)
         self.assertTrue("extension2" in extension_list)
@@ -134,7 +144,8 @@ class TestRemoveCommon(unittest.TestCase):
     def test_get_extension_list_from_file(self):
         b = base_system()
         b.set_craft_project_dir("test_files/project_1")
-        extension_list = remove_common.get_extension_list([])
+        config = remove_common.Configuration()
+        extension_list = config._get_extensions_list([])
         self.assertEqual(len(extension_list), 4)
         self.assertIn("gnome-46-2404", extension_list)
         self.assertIn("mesa-2404", extension_list)
@@ -142,26 +153,30 @@ class TestRemoveCommon(unittest.TestCase):
         self.assertIn("gtk-common-themes", extension_list)
 
     def test_generated_mappings(self):
-        mappings = remove_common.generate_mappings(["gtk-common-themes:usr"], ["snap1:/test1", "snap2:test2/"])
+        config = remove_common.Configuration()
+        mappings = config._generate_mappings(["gtk-common-themes:usr"], ["snap1:/test1", "snap2:test2/"])
         self.assertIn("gtk-common-themes", mappings)
         self.assertEqual(mappings["gtk-common-themes"], "usr/")
         self.assertIn("snap1", mappings)
         self.assertEqual(mappings["snap1"], "test1/")
         self.assertIn("snap2", mappings)
         self.assertEqual(mappings["snap2"], "test2/")
-        self.assertRaises(SyntaxError, remove_common.generate_mappings, ["snap1:/"], [])
-        self.assertRaises(SyntaxError, remove_common.generate_mappings, ["snap1:usr:a"], [])
+        self.assertRaises(SyntaxError, config._generate_mappings, ["snap1:/"], [])
+        self.assertRaises(SyntaxError, config._generate_mappings, ["snap1:usr:a"], [])
 
     def test_generate_folders(self):
-        folders = remove_common.generate_extensions_paths(["gtk-common-themes", "core24"], {"gtk-common-themes": "usr/"})
+        config = remove_common.Configuration()
+        folders = config._generate_extensions_paths(["gtk-common-themes", "core24"], {"gtk-common-themes": "usr/"})
         self.assertEqual(len(folders), 2)
         for entry in folders:
-            self.assertEqual(len(entry), 2)
-            self.assertIn(entry[0], ["/snap/gtk-common-themes/current", "/snap/core24/current"])
-            if (entry[0] == "/snap/gtk-common-themes/current"):
-                self.assertEqual(entry[1], "usr/")
-            elif (entry[0] == "/snap/core24/current"):
-                self.assertIsNone(entry[1])
+            self.assertEqual(len(entry), 3)
+            self.assertIn(entry[1], ["/snap/gtk-common-themes/current", "/snap/core24/current"])
+            if (entry[1] == "/snap/gtk-common-themes/current"):
+                self.assertEqual(entry[0], "gtk-common-themes")
+                self.assertEqual(entry[2], "usr/")
+            elif (entry[1] == "/snap/core24/current"):
+                self.assertEqual(entry[0], "core24")
+                self.assertIsNone(entry[2])
 
 
 if __name__ == '__main__':

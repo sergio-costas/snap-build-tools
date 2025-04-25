@@ -6,15 +6,18 @@ import unittest
 import os
 from pathlib import Path
 import shutil
+import tempfile
 import remove_common
 
 
 class TestRemoveCommon(unittest.TestCase):
     """ Test class """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._base_test_folder = "/tmp/tests"
+    def setUp(self):
+        self._base_test_folder = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self._base_test_folder)
 
     def _touch_file(self, relative_path):
         if relative_path[0] == os.sep:
@@ -29,12 +32,12 @@ class TestRemoveCommon(unittest.TestCase):
         return full_path
 
     def _create_files(self):
-        self._touch_file("core22/usr/bin/file1.txt")
-        self._touch_file("core22/usr/bin/file2.txt")
-        self._touch_file("core22/usr/lib/file1.txt")
-        self._touch_file("gnome-42-2204/bin/file1.txt")
-        self._touch_file("gnome-42-2204/share/file1.txt")
-        self._touch_file("gnome-42-2204/share/file2.txt")
+        self._touch_file("core22/current/usr/bin/file1.txt")
+        self._touch_file("core22/current/usr/bin/file2.txt")
+        self._touch_file("core22/current/usr/lib/file1.txt")
+        self._touch_file("gnome-42-2204/current/bin/file1.txt")
+        self._touch_file("gnome-42-2204/current/share/file1.txt")
+        self._touch_file("gnome-42-2204/current/share/file2.txt")
 
         final_files = []
         final_files.append(self._touch_file("stage/usr/bin/file1.txt"))
@@ -48,16 +51,20 @@ class TestRemoveCommon(unittest.TestCase):
         final_files.append(self._touch_file("stage/etc/file1.txt"))
         return final_files
 
-    def _delete_files(self):
-        shutil.rmtree(self._base_test_folder)
-
     def test_basic_test(self):
-        """ This test creates several files in two emulated snaps, and
-            some repeated and non-repeated files in an emulated stage,
-            and checks that only the duplicated files are removed. """
+        """ Basic test
+
+        Creates several files in two emulated snaps, and some repeated
+        and non-repeated files in an emulated stage, and checks that
+        only the duplicated files are removed. """
 
         final_files = self._create_files()
-        remove_common.main("/tmp/tests/stage", [("/tmp/tests/core22", None), ("/tmp/tests/gnome-42-2204", "usr/")])
+        config = remove_common.Configuration(extensions = ["core22", "gnome-42-2204"],
+                                             mappings = ["gnome-42-2204:usr"],
+                                             snap_prefix = self._base_test_folder,
+                                             quiet = True)
+        remove_common.main(snap_folder = os.path.join(self._base_test_folder, "stage"),
+                           config = config)
         assert not os.path.exists(final_files[0])
         assert not os.path.exists(final_files[1])
         assert os.path.exists(final_files[2])
@@ -67,6 +74,23 @@ class TestRemoveCommon(unittest.TestCase):
         assert not os.path.exists(final_files[6])
         assert os.path.exists(final_files[7])
         assert os.path.exists(final_files[8])
-        self._delete_files()
+
+    def test_execute(self):
+        """ Execution test
+
+        Same than Basic test, but running it from command line instead. """
+
+        final_files = self._create_files()
+        os.environ["CRAFT_PART_INSTALL"] = os.path.join(self._base_test_folder, "stage")
+        os.system(f"./remove_common.py --quiet core22 gnome-42-2204 --map gnome-42-2204:usr --snap-prefix={self._base_test_folder}")
+        assert not os.path.exists(final_files[0])
+        assert not os.path.exists(final_files[1])
+        assert os.path.exists(final_files[2])
+        assert not os.path.exists(final_files[3])
+        assert os.path.exists(final_files[4])
+        assert not os.path.exists(final_files[5])
+        assert not os.path.exists(final_files[6])
+        assert os.path.exists(final_files[7])
+        assert os.path.exists(final_files[8])
 
 unittest.main()
