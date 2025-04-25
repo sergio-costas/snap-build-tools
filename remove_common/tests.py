@@ -144,7 +144,6 @@ class TestRemoveCommon(unittest.TestCase):
         b = base_system()
         b.set_craft_project_dir("test_files/project_1")
         config = remove_common.Configuration()
-        config.process_snapcraft_yaml()
         extension_list = config._get_extensions_list([])
         self.assertEqual(len(extension_list), 4)
         self.assertIn("gnome-46-2404", extension_list)

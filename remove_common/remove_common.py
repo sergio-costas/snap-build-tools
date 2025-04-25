@@ -26,32 +26,64 @@ parser.add_argument('-q', '--quiet', action='store_true', default=False, help="D
 args = parser.parse_args()
 
 class Configuration:
+    """ Contains all the desired configuration for removing common files """
     def __init__(self, *, verbose = False, quiet = False, mappings = [], excludes = [], extensions = []):
+        """ Initialized the class
+
+        Parameters
+        ----------
+        verbose : bool, optional
+            If the program must be more verbose and show extra messages, by default False
+        quiet : bool, optional
+            If the program must be quiet and show no messages, by default False
+        mappings : list, optional
+            A list of strings with the extension mapping, in the form
+            'extension_snap_name:mapping_path_prefix'. This is useful when the contents of an
+            extension aren't mapped directly to the corresponding relative path
+            in our snap. An example is gtk-common-themes, whose their paths must
+            be prefixed by 'usr/' to match the corresponding path in our snap. By default []
+        excludes : list, optional
+            A list of strings with rules to exclude files. These rules can contain
+            wildcard characters like in a shell command line; thus * and ?. By default []
+        extensions : list, optional
+            _description_, by default []
+        """
         # specific case for themed icons
         self._global_excludes = ['usr/share/icons/*/index.theme']
         self._global_maps = ['gtk-common-themes:usr']
 
         if len(excludes) != 0:
             self._global_excludes += excludes
+
         self._custom_extensions = []
         self.verbose = verbose
         self.quiet = quiet
         self._mapping_list = mappings
         self._extensions_list = extensions
-        self._mappings = self._generate_mappings(self._global_maps, self._mapping_list)
-        self._extensions_paths = self._generate_extensions_paths(extensions, self._mappings)
+        self._extensions_paths = None
         self._yaml = None
 
         if verbose:
             print(f"Removing duplicates already in {extensions}")
 
 
-    def add_extension_path(self, extension, path):
-        self._custom_extensions.append((extension, path))
+    def add_extension_path(self, extension, path_mapping = None):
+        """ Adds the path of an extension
+
+        Parameters
+        ----------
+        extension : string
+            The path where the data of an extension is stored
+        path_mapping : string or None, optional
+            The mapping path required to match the paths inside this
+            extension snap and the paths in our snap. By default None
+        """
+        self._custom_extensions.append((extension, path_mapping))
 
 
     def add_exclude(self, exclude):
         self._global_excludes.append(exclude)
+
 
     @property
     def exclude_list(self):
@@ -60,26 +92,23 @@ class Configuration:
 
     @property
     def extensions_paths(self):
-        return self._extensions_paths + self._custom_extensions
-
-
-    @property
-    def extensions(self):
-        return self._extensions_paths + self._custom_extensions
-
-
-    def process_snapcraft_yaml(self):
-        """ Reads the snapcraft.yaml file and processes it to extract extensions and mappings """
-        self._load_snapcraft_yaml()
+        if self._extensions_paths is not None:
+            # to allow tests
+            return self._extensions_paths
         extensions = self._get_extensions_list(self._extensions_list)
         if len(extensions) == 0:
             raise RuntimeError("Called remove_common.py without a list of snaps, and no 'build-snaps' entry in the snapcraft.yaml file.")
-        self._mappings = self._generate_mappings(self._global_maps, self._mapping_list)
-        self._extensions_paths = self._generate_extensions_paths(extensions, self._mappings)
+        mappings = self._generate_mappings(self._global_maps, self._mapping_list)
+        extensions_paths = self._generate_extensions_paths(extensions, mappings)
+        return extensions_paths + self._custom_extensions
 
 
     def _load_snapcraft_yaml(self):
         """ Loads the snapcraft.yaml file in memory """
+
+        # Don't load it if it was already loaded
+        if self._yaml is not None:
+            return
 
         if 'CRAFT_PROJECT_DIR' not in os.environ:
             return
@@ -96,6 +125,9 @@ class Configuration:
 
     def _get_extensions_list(self, cmdline_extensions):
         """Returns an array with the extensions for this project.
+
+        It returns either the list of extensions passed in the command line, or
+        the list of extensions extracted from the snapcraft.yaml file.
 
         Parameters
         ----------
@@ -118,6 +150,7 @@ class Configuration:
         if len(cmdline_extensions) != 0:
             return cmdline_extensions
 
+        self._load_snapcraft_yaml()
         parts_data = self._yaml["parts"]
         extensions = []
         for part_name in parts_data:
