@@ -216,7 +216,7 @@ def check_if_exists(extensions_paths, relative_file_path, verbose):
     return False
 
 
-def main(snap_folder, extensions_paths, exclude_list=[], verbose=False, quiet=True):
+def main(*, snap_folder, extensions_paths, exclude_list=[], verbose=False, quiet=True):
     """Main function
 
     Searches each file in 'snap_folder' inside each path in 'extensions_paths'
@@ -272,10 +272,10 @@ def main(snap_folder, extensions_paths, exclude_list=[], verbose=False, quiet=Tr
 
 
 if __name__ == "__main__":
-    verbose = args.verbose
+    be_verbose = args.verbose
     exclude = args.exclude
     extensions = args.extension
-    quiet = args.quiet
+    be_quiet = args.quiet
     mapping = {}
 
     if exclude is not None:
@@ -288,7 +288,7 @@ if __name__ == "__main__":
 
     mappings = generate_mappings(global_maps, args.map)
 
-    if verbose:
+    if be_verbose:
         print(f"Removing duplicates already in {extensions}")
 
     extensions_paths = generate_extensions_paths(extensions, mappings)
@@ -299,4 +299,13 @@ if __name__ == "__main__":
     # parts.
     snap_folder = os.environ["CRAFT_PART_INSTALL"]
 
-    main(snap_folder, extensions_paths, global_excludes, verbose, quiet)
+    # We use the LD_LIBRARY_PATH environment variable to get the folders
+    # where libraries are searched for, and thus where to find duplicates
+    libraries_folders = os.environ["LD_LIBRARY_PATH"].split(":")
+    print(f"Libraries: {libraries_folders}")
+
+    main(snap_folder=snap_folder,
+         extensions_paths=extensions_paths,
+         exclude_list=global_excludes,
+         verbose=be_verbose,
+         quiet=be_quiet)

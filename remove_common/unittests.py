@@ -57,7 +57,8 @@ class TestRemoveCommon(unittest.TestCase):
             and checks that only the duplicated files are removed. """
 
         final_files = self._create_files()
-        remove_common.main("/tmp/tests/stage", [("/tmp/tests/core22", None), ("/tmp/tests/gnome-42-2204", "usr/")])
+        remove_common.main(snap_folder="/tmp/tests/stage",
+                           extensions_paths=[("/tmp/tests/core22", None), ("/tmp/tests/gnome-42-2204", "usr/")])
         assert not os.path.exists(final_files[0])
         assert not os.path.exists(final_files[1])
         assert os.path.exists(final_files[2])
