@@ -104,6 +104,8 @@ class Configuration:
 
     @property
     def extensions_paths(self):
+        """ Returns a list with the extensions, the path where their files
+        are located, and their mapping paths """
         extensions = self._get_extensions_list(self._extensions_list)
         if len(extensions) == 0:
             raise RuntimeError("Called remove_common.py without a list of snaps, and no 'build-snaps' entry in the snapcraft.yaml file.")
@@ -207,12 +209,12 @@ class Configuration:
             elements = map.split(":")
             if len(elements) != 2:
                 raise SyntaxError("Error in mapping. It must be in the format snap_name:path", {'filename': 'remove_common.py', 'text': map, 'lineno': 0, 'offset': 0})
-            if elements[1] == '/':
+            if elements[1] == os.sep:
                 raise SyntaxError("The mapping can't be '/'", {'filename': 'remove_common.py', 'text': map, 'lineno': 0, 'offset': 0})
-            while elements[1][0] == '/':
+            while elements[1][0] == os.sep:
                 elements[1] = elements[1][1:]
-            if elements[1][-1] != '/':
-                elements[1] += '/'
+            if elements[1][-1] != os.sep:
+                elements[1] += os.sep
             mappings[elements[0]] = elements[1]
 
         return mappings
@@ -249,10 +251,72 @@ class Configuration:
         return folders
 
 
-def check_if_exists(config, relative_file_path):
+def get_correspondences_for_path(*, config, relative_path):
+    """ Returns a dictionary with the corresponding paths in each extension.
+
+    Returns a list with the equivalent file/path to `relative_path` in each
+    extension, taking into account any possible mapping.
+
+    Parameters
+    ----------
+    relative_path : string
+        The path we want to find in all the extensions. It will be presumed to
+        be relative to our part's `build` folder, even if an absolute path is
+        passed.
+
+    Returns
+    -------
+    A dictionary where each key is an extension name, and the value is the
+    absolute path corresponding to `relative_path` in that extension.
+    """
+
+    # Transform any absolute path into a relative one, to ensure
+    # that os.path.join works as we want (joining 'relative_path' after
+    # each mapping path).
+    if (len(relative_path) != 0) and (relative_path[0] == os.sep):
+        relative_path = relative_path[1:]
+    retval = {}
+    for extension_name, folder, map_path in config.extensions_paths:
+        if (map_path is not None) and relative_path.startswith(map_path):
+            fixed_relative_path = relative_path[len(map_path):]
+            if fixed_relative_path[0] == os.sep:
+                fixed_relative_path = fixed_relative_path[1:]
+        else:
+            fixed_relative_path = relative_path
+        retval[extension_name] = os.path.join(folder, fixed_relative_path)
+    return retval
+
+
+def check_if_excluded(*, config, file_path):
+    """Checks if a path matches any of the rules to exclude it
+
+    Returns whether the specified path matches any of the "exclude" rules
+    passed in the command line.
+
+    Parameters
+    ----------
+    config : a Configuration object
+        The configuration object with the parameters
+    file_path : string
+        The file/folder path to check for exclusion
+
+    Returns
+    -------
+    True if it matches any of the rules; False if it matches no rule.
+    """
+
+    for exclude in config.exclude_list:
+        if fnmatch.fnmatch(file_path, exclude):
+            if config.verbose:
+                print(f"Excluding {file_path} with rule {exclude}")
+            return True
+    return False
+
+
+def check_if_exists(*, config, file_path):
     """Checks if an specific file does exist in any of the base paths.
 
-    Checks if the specified file at `relative_file_path` does exist in
+    Checks if the specified file at `file_path` does exist in
     any of the paths included in the `extensions_paths` array, taking into
     account the mapping specified.
 
@@ -267,7 +331,7 @@ def check_if_exists(config, relative_file_path):
     ----------
     config : Configuration
         This object must contain the current configuration data
-    relative_file_path : string
+    file_path : string
         The file path to search in the folder list, relative to the
         snap root.
 
@@ -279,35 +343,29 @@ def check_if_exists(config, relative_file_path):
     """
 
     # Checks if an specific file does exist in any of the base paths
-    for _, folder, map_path in config.extensions_paths:
-        if (map_path is not None) and relative_file_path.startswith(map_path):
-            relative_file_path2 = relative_file_path[len(map_path):]
-            if relative_file_path2[0] == '/':
-                relative_file_path2 = relative_file_path2[1:]
-        else:
-            relative_file_path2 = relative_file_path
-        check_path = os.path.join(folder, relative_file_path2)
+    correspondences = get_correspondences_for_path(config=config, relative_path=file_path)
+    for check_path in correspondences.values():
         if os.path.exists(check_path):
             if config.verbose:
-                print(f"The path {relative_file_path} has been found inside {folder} with map {map_path}: {relative_file_path2}")
+                print(f"The path {file_path} has been found inside {check_path}")
             return True
     return False
 
 
-def main(*, snap_folder, config):
+def main(*, part_install_folder, config):
     """Main function
 
-    Searches each file in 'snap_folder' inside each path in 'extensions_paths'
+    Searches each file in 'part_install_folder' inside each path in 'extensions_paths'
     to check if it is already available there, deleting it in that case, unless
     it matches any of the rules in 'exclude_list'.
 
     The check is done based only on the relative path and file name relative to
-    'snap_folder', searching that inside each path in 'extensions_paths', although
+    'part_install_folder', searching that inside each path in 'extensions_paths', although
     taking into account the mapping.
 
     Parameters
     ----------
-    snap_folder : string
+    part_install_folder : string
         The path of the folder where the staged .deb have been uncompressed (usually
         CRAFT_PART_INSTALL)
     config : Configuration
@@ -316,22 +374,17 @@ def main(*, snap_folder, config):
     """
 
     duplicated_bytes = 0
-    for full_file_path in glob.glob(os.path.join(snap_folder, "**/*"), recursive=True):
+    for full_file_path in glob.glob(os.path.join(part_install_folder, "**/*"), recursive=True):
         if not os.path.isfile(full_file_path) and not os.path.islink(full_file_path):
             continue
-        relative_file_path = full_file_path[len(snap_folder):]
-        if relative_file_path[0] == '/':
+        relative_file_path = full_file_path[len(part_install_folder):]
+        if relative_file_path[0] == os.sep:
             relative_file_path = relative_file_path[1:]
-        do_exclude = False
-        for exclude in config.exclude_list:
-            if fnmatch.fnmatch(relative_file_path, exclude):
-                if config.verbose:
-                    print(f"Excluding {relative_file_path} with rule {exclude}")
-                do_exclude = True
-                break
-        if do_exclude:
+
+        if check_if_excluded(config=config, file_path=relative_file_path):
             continue
-        if check_if_exists(config, relative_file_path):
+
+        if check_if_exists(config=config, file_path=relative_file_path):
             if os.path.isfile(full_file_path):
                 duplicated_bytes += os.stat(full_file_path).st_size
             os.remove(full_file_path)
@@ -354,6 +407,6 @@ if __name__ == "__main__":
     # This is the folder where to check for duplicates that are already
     # in other snaps, or in the stage because they were built in other
     # parts.
-    snap_folder = os.environ["CRAFT_PART_INSTALL"]
+    part_install_folder = os.environ["CRAFT_PART_INSTALL"]
 
-    main(snap_folder=snap_folder, config = configuration)
+    main(part_install_folder=part_install_folder, config = configuration)

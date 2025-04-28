@@ -63,7 +63,7 @@ class TestRemoveCommon(unittest.TestCase):
                                              mappings = ["gnome-42-2204:usr"],
                                              snap_prefix = self._base_test_folder,
                                              quiet = True)
-        remove_common.main(snap_folder = os.path.join(self._base_test_folder, "stage"),
+        remove_common.main(part_install_folder = os.path.join(self._base_test_folder, "stage"),
                            config = config)
         assert not os.path.exists(final_files[0])
         assert not os.path.exists(final_files[1])
@@ -92,5 +92,57 @@ class TestRemoveCommon(unittest.TestCase):
         assert not os.path.exists(final_files[6])
         assert os.path.exists(final_files[7])
         assert os.path.exists(final_files[8])
+
+    def test_correspondences(self):
+        """ Correspondences test
+
+        Checks if the function that matches a path in the part with the
+        corresponding path in the extensions work as expected.
+        """
+
+        config = remove_common.Configuration(extensions = ["core24", "gtk-common-themes"],
+                                             mappings = ["gtk-common-themes:usr"],
+                                             snap_prefix = self._base_test_folder,
+                                             quiet = True)
+
+        paths = remove_common.get_correspondences_for_path(config = config,
+                                                           relative_path = "usr/lib")
+        self.assertIn('core24', paths)
+        self.assertIn('gtk-common-themes', paths)
+        self.assertEqual(paths['core24'], os.path.join(self._base_test_folder,
+                                                       'core24',
+                                                       'current',
+                                                       'usr/lib'))
+        self.assertEqual(paths['gtk-common-themes'], os.path.join(self._base_test_folder,
+                                                                  'gtk-common-themes',
+                                                                  'current',
+                                                                  'lib'))
+
+    def test_absolute_correspondences(self):
+        """ Correspondences test
+
+        Checks if the function that matches a path in the part with the
+        corresponding path in the extensions work as expected, this time
+        passing absolute paths
+        """
+
+        config = remove_common.Configuration(extensions = ["core24", "gtk-common-themes"],
+                                             mappings = ["gtk-common-themes:usr"],
+                                             snap_prefix = self._base_test_folder,
+                                             quiet = True)
+
+        paths = remove_common.get_correspondences_for_path(config = config,
+                                                           relative_path = "/usr/lib")
+        self.assertIn('core24', paths)
+        self.assertIn('gtk-common-themes', paths)
+        self.assertEqual(paths['core24'], os.path.join(self._base_test_folder,
+                                                       'core24',
+                                                       'current',
+                                                       'usr/lib'))
+        self.assertEqual(paths['gtk-common-themes'], os.path.join(self._base_test_folder,
+                                                                  'gtk-common-themes',
+                                                                  'current',
+                                                                  'lib'))
+
 
 unittest.main()
