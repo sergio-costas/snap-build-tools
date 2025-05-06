@@ -24,6 +24,7 @@ class base_system:
         self._config = remove_common.Configuration(extensions = ["gnome-46", "gtk-common-themes"],
                                                    mappings = ["gtk-common-themes:usr"],
                                                    snap_prefix = self._snap_path)
+        self._config.quiet = True
         # maps must end in "/", like "usr/"
 
         os.makedirs(self._gtk_common_themes_path)
@@ -79,7 +80,7 @@ class base_system:
 
 
     def remove_common(self):
-        remove_common.main(snap_folder=self._install_path,
+        remove_common.main(part_install_folder = self._install_path,
                            config = self._config)
 
 
@@ -136,6 +137,7 @@ class TestRemoveCommon(unittest.TestCase):
 
     def test_get_extension_list_from_cmdline(self):
         config = remove_common.Configuration()
+        config.quiet = True
         extension_list = config._get_extensions_list(["extension1", "extension2"])
         self.assertEqual(len(extension_list), 2)
         self.assertTrue("extension1" in extension_list)
@@ -145,6 +147,7 @@ class TestRemoveCommon(unittest.TestCase):
         b = base_system()
         b.set_craft_project_dir("test_files/project_1")
         config = remove_common.Configuration()
+        config.quiet = True
         extension_list = config._get_extensions_list([])
         self.assertEqual(len(extension_list), 4)
         self.assertIn("gnome-46-2404", extension_list)
@@ -154,6 +157,7 @@ class TestRemoveCommon(unittest.TestCase):
 
     def test_generated_mappings(self):
         config = remove_common.Configuration()
+        config.quiet = True
         mappings = config._generate_mappings(["gtk-common-themes:usr"], ["snap1:/test1", "snap2:test2/"])
         self.assertIn("gtk-common-themes", mappings)
         self.assertEqual(mappings["gtk-common-themes"], "usr/")
@@ -166,6 +170,7 @@ class TestRemoveCommon(unittest.TestCase):
 
     def test_generate_folders(self):
         config = remove_common.Configuration()
+        config.quiet = True
         folders = config._generate_extensions_paths(["gtk-common-themes", "core24"], {"gtk-common-themes": "usr/"})
         self.assertEqual(len(folders), 2)
         for entry in folders:
